@@ -1,0 +1,55 @@
+#0!/bin/sh
+export PATH=/opt/gcc-4.9.3-64-gnu/bin:$PATH
+export MAKEFLAGS='CC=mips64el-linux-gcc\ -g\ -march=loongson3a'
+case $1 in
+qemu)
+shift
+#LOONGSONENV=1 INITRD_OFFSET=0x05000000 /work/work/loongson/qemu/qemu-latest/mips64el-softmmu/qemu-system-mips64el -M ls2k -kernel vmlinux  -m 256 -append 'rdinit=/sbin/init console=ttyS0,115200 initcall_debug=1 log_buf_len=4M loglevel=20 ' -gdb tcp::1235 -m 512  -net nic -net user  -serial stdio -monitor tcp::9999,server,nowait -hda /tmp/disk "$@" #-usb   -device usb-kbd,bus=usb-bus.2 -drive file=/tmp/disk,id=a,if=none -device usb-storage,bus=usb-bus.2,drive=a # -usb -device usb-kbd,bus=usb-bus.0  "$@"  #-hda /tmp/disk    
+LOONGSONENV=1 INITRD_OFFSET=0x02000000 /work/work/loongson/qemu/qemu-latest/mips64el-softmmu/qemu-system-mips64el -M ls2k -kernel vmlinux -initrd /srv/tftp/initrd.gz  -m 512 -append 'rdinit=/sbin/init console=ttyS0,115200 initcall_debug=1 log_buf_len=4M loglevel=20 ' -gdb tcp::1235 -m 512  -net nic -net user  -serial stdio -monitor tcp::9999,server,nowait -hda /tmp/disk  "$@" ## -usb -device usb-kbd,bus=usb-bus.0  "$@"  #-hda /tmp/disk    
+;;
+qemu1)
+shift
+sudo LOONGSONENV=1 /work/qemu/qemu-new/mips64el-softmmu/qemu-system-mips64el -M ls3a -kernel vmlinux  -m 256 -smp 1 -append 'root=/dev/nfs ip=192.168.0.2:::::eth0 nfsroot=192.168.0.3:/mnt/tmp,nfsvers=3 console=ttyS0,115200 initcall_debug=1 log_buf_len=4M loglevel=20 nosmp stripe4=0 nomsi' -s -m 512 -net nic -net tap -usb  -nographic "$@"
+;;
+os)
+set -x
+showmount -e 127.0.0.1|grep -q /mnt/tmp && sudo exportfs -u  *:/mnt/tmp
+for i in /mnt/tmp /mnt/ubuntu /home/qiaochong/udisk;do
+while mountpoint -q $i;do
+ sudo umount $i
+done
+done
+
+[ -d /home/qiaochong/udisk ]  && rm -rf /home/qiaochong/udisk
+mkdir /home/qiaochong/udisk
+
+mountpoint -q /media/9806F73406F711CC/ || udisks --mount /dev/sda2
+mountpoint -q /mnt/ubuntu || sudo mount -o loop /media/9806F73406F711CC/work/os/federa-20140312.sqfs /mnt/ubuntu
+mountpoint -q /mnt/tmp/ || sudo mount n /mnt/tmp -t aufs -o br:/home/qiaochong/udisk=rw:/mnt/ubuntu=ro
+showmount -e 127.0.0.1|grep -q /mnt/tmp && sudo exportfs -u  *:/mnt/tmp
+sudo exportfs -o rw,sync,no_root_squash,fsid=20 *:/mnt/tmp
+;;
+os1)
+showmount -e 127.0.0.1|grep -q /mnt/tmp && sudo exportfs -u  *:/mnt/tmp
+for i in /mnt/tmp /mnt/ubuntu /home/qiaochong/udisk;do
+while mountpoint -q $i;do
+ sudo umount $i
+done
+done
+
+[ -d /home/qiaochong/udisk ]  && rm -rf /home/qiaochong/udisk
+mkdir /home/qiaochong/udisk
+
+mountpoint -q /media/9806F73406F711CC/ || udisks --mount /dev/sda2
+mountpoint -q /mnt/ubuntu || sudo mount -o loop /media/9806F73406F711CC/work/os/squeeze.disk /mnt/ubuntu
+mountpoint -q /mnt/tmp/ || sudo mount n /mnt/tmp -t aufs -o br:/home/qiaochong/udisk=rw:/mnt/ubuntu=ro
+showmount -e 127.0.0.1|grep -q /mnt/tmp && sudo exportfs -u  *:/mnt/tmp
+sudo exportfs -o rw,sync,no_root_squash,fsid=20 *:/mnt/tmp
+;;
+vmlinux)
+make ARCH=mips CROSS_COMPILE=mips64el-linux- -j 4 "$@"
+;;
+*)
+make ARCH=mips CROSS_COMPILE=mips64el-linux- -j 4   INSTALL_MOD_PATH=/tmp/modules/ "$@"
+;;
+esac

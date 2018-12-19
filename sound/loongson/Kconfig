@@ -1,0 +1,27 @@
+menuconfig SND_HDA_LS2H
+	bool "Loongson2H HD Audio"
+	depends on LS2H_SB || MACH_LOONGSON2K
+	select SND_PCM
+	select SND_VMASTER
+	help
+	  Say Y here to include support for "Loongson2H High Definition
+	  Audio".
+
+if SND_HDA_LS2H
+
+config LS2H_HDA_POWER_SAVE
+	bool "Aggressive power-saving on HD-audio"
+	help
+	  Say Y here to enable more aggressive power-saving mode on
+	  HD-audio driver.  The power-saving timeout can be configured
+	  via power_save option or over sysfs on-the-fly.
+
+config LS2H_HDA_POWER_SAVE_DEFAULT
+	int "Default time-out for HD-audio power-save mode"
+	depends on LS2H_HDA_POWER_SAVE
+	default 0
+	  help
+	  The default time-out value in seconds for HD-audio automatic
+	  power-save mode.  0 means to disable the power-save mode.
+
+endif

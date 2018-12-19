@@ -1,0 +1,32 @@
+#
+# MIPS Platform Specific Drivers
+#
+
+menuconfig LOONGSON_EC_DEVICES
+	bool "LOONGSON Platform EC Device Drivers"
+	default y
+	depends on MIPS
+	---help---
+	  Say Y here to get to see options for ec device drivers for loongson
+	  platforms.
+	  This option alone does not add any kernel code.
+
+	  If you say N, all options in this submenu will be skipped and disabled.
+
+if LOONGSON_EC_DEVICES
+
+config LOONGSON_LAPTOP
+	tristate "Loongson Laptop pm and hotkey driver"
+	depends on CPU_LOONGSON3
+	select BACKLIGHT_CLASS_DEVICE
+	select LCD_CLASS_DEVICE
+	select BACKLIGHT_LCD_SUPPORT
+	select VIDEO_OUTPUT_CONTROL
+	depends on INPUT
+	select INPUT_SPARSEKMAP
+	select INPUT_EVDEV
+	default y
+	---help---
+	  This is a driver for Loongson laptops, include power and hotkey
+	  driver;
+endif

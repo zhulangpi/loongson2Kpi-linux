@@ -1,0 +1,7 @@
+#
+# Loongson3 Machines' Support
+#
+
+platform-$(CONFIG_MACH_LOONGSON2K) += loongson2/ls2k/
+cflags-$(CONFIG_MACH_LOONGSON2K) += -I$(srctree)/arch/mips/include/asm/mach-loongson2k -mno-branch-likely
+load-$(CONFIG_CPU_LOONGSON2K) += 0xffffffff80200000

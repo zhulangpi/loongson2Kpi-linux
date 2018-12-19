@@ -1,0 +1,113 @@
+if MACH_LOONGSON3
+
+choice
+	prompt "Machine Type"
+
+config LOONGSON_MACH3X
+	bool "Generic Loongson 3 family machines"
+	select ARCH_SPARSEMEM_ENABLE
+	select GENERIC_ISA_DMA_SUPPORT_BROKEN
+	select BOOT_ELF32
+	select BOARD_SCACHE
+	select CSRC_R4K
+	select CEVT_R4K
+	select CPU_HAS_WB
+	select HW_HAS_PCI
+	select LS2H_SB
+	select ISA
+	select HT_PCI
+	select I8259
+	select IRQ_CPU
+	select NR_CPUS_DEFAULT_4
+	select SYS_HAS_CPU_LOONGSON3
+	select SYS_HAS_EARLY_PRINTK
+	select SYS_SUPPORTS_SMP
+	select SYS_SUPPORTS_64BIT_KERNEL
+	select SYS_SUPPORTS_HIGHMEM
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select ZONE_DMA32
+	select UEFI_FIRMWARE_INTERFACE
+	select SYS_SUPPORTS_HOTPLUG_CPU
+	select SYS_SUPPORTS_NUMA
+	select PHYS48_TO_HT40
+	select SYNC_R4K
+	select LOONGSON_MC146818
+	select ARCH_REQUIRE_GPIOLIB
+	select ARCH_SUPPORTS_MSI
+	help
+		Generic Loongson 3 family machines utilize the 3A/3B revision of
+		Loongson processor and RS780/SBX00/2H chipset.
+endchoice
+
+config RS780_HPET
+	bool "RS780/SBX00 HPET Timer"
+	depends on LOONGSON_MACH3X
+	select MIPS_EXTERNAL_TIMER
+	help
+	  This option enables the hpet timer of AMD RS780/SBX00.
+
+	  If you want to enable the Loongson3 CPUFreq Driver, Please enable
+	  this option at first, otherwise, You will get wrong system time.
+
+	  If unsure, say Yes.
+
+config LOONGSON_SUSPEND
+	bool
+	default y
+	depends on CPU_SUPPORTS_CPUFREQ && SUSPEND
+
+config LOONGSON_UART_BASE
+	bool
+	default y
+	depends on EARLY_PRINTK || SERIAL_8250
+
+config IOMMU_HELPER
+	bool
+
+config NEED_SG_DMA_LENGTH
+	bool
+
+config SWIOTLB
+	bool "Soft IOMMU Support for Big Memory (>4GB)"
+	depends on CPU_LOONGSON3
+	select IOMMU_HELPER
+	select NEED_SG_DMA_LENGTH
+	select NEED_DMA_MAP_STATE
+
+config LOONGSON_MC146818
+	bool
+	default n
+
+config ARCH_SPARSEMEM_ENABLE
+	bool
+	select SPARSEMEM_STATIC
+
+config UEFI_FIRMWARE_INTERFACE
+	bool
+
+config PHYS48_TO_HT40
+	bool
+	default y if CPU_LOONGSON3
+
+config PHASE_LOCK
+	bool "Loongson3 Hierarchical Lock Support"
+	default y
+	depends on CPU_LOONGSON3
+	help
+	  Say Y to compile the kernel to support hierarchical lock (PHASE_LOCK).
+	  This option improves performance on systems with more than two nodes.
+
+config LS2H_SB
+	bool
+
+config LOONGSON_DMA_NONCOHERENT
+	bool "Loongson dma noncoherent"
+	select DMA_NONCOHERENT
+	default n
+
+config PCI_MSI_IRQ_BALANCE
+        bool "pci msi irq balance"
+        depends on PCI_MSI
+        default y
+
+endif # MACH_LOONGSON3

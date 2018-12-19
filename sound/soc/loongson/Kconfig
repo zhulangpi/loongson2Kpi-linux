@@ -1,0 +1,20 @@
+config SND_LS2K
+	tristate "SoC Audio for the LS2K chip"
+	depends on MACH_LOONGSON2K
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the PXA2xx AC97, I2S or SSP interface. You will also need
+	  to select the audio interfaces to support below.
+
+
+choice
+	prompt "ls2k codec"
+	default SND_LS2K_UDA1342
+	depends on SND_LS2K
+config SND_LS2K_UDA1342
+	bool "uda1342 codec"
+	select SND_SOC_UDA1342
+config SND_LS2K_RT5651
+	bool "rt5651 codec"
+	select SND_SOC_RT5651
+endchoice 

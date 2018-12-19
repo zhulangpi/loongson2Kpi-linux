@@ -1,0 +1,2 @@
+obj-$(CONFIG_MACH_LOONGSON2K) += ls2k/
+
