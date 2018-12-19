@@ -1787,7 +1787,8 @@ static void __cpuinit build_r4000_tlb_refill_handler(void)
 	/* Simplest case, just copy the handler. */
 	uasm_copy_handler(relocs, labels, tlb_handler, p, f);
 	final_len = p - tlb_handler;
-#else /* CONFIG_64BIT */			/*龙芯2k应该是走这条的，这里将tlb_handler到p的空间分成两段 	--by zlp */
+#else /* CONFIG_64BIT */			
+	/*龙芯2k应该是走这条的，这里将tlb_handler到p的空间分成两段 */
 	f = final_handler + MIPS64_REFILL_INSNS;
 	if ((p - tlb_handler) <= MIPS64_REFILL_INSNS) {		/* 如果指令少，放得下 */
 		/* Just copy the handler. */
@@ -1855,9 +1856,11 @@ static void __cpuinit build_r4000_tlb_refill_handler(void)
 		}
 
 		/* Copy the rest of the handler. */
-		uasm_copy_handler(relocs, labels, split, p, final_handler);		/* 为什么第二段拷贝到前半段，第一段拷贝到后半段呢？ */
+		/* 为什么第二段拷贝到前半段，第一段拷贝到后半段呢？ */
+		uasm_copy_handler(relocs, labels, split, p, final_handler);		
+		/* final_len == p - tlb_handler ? */
 		final_len = (f - (final_handler + MIPS64_REFILL_INSNS)) +
-			    (p - split);		/* final_len == p - tlb_handler ? */
+			    (p - split);		
 	}
 #endif /* CONFIG_64BIT */
 
@@ -1880,7 +1883,8 @@ static void __cpuinit build_r4000_tlb_refill_handler(void)
  */
 #define FASTPATH_SIZE 128
 
-u32 handle_tlbl[FASTPATH_SIZE] __cacheline_aligned;		/* 在 ../kernel/traps.c:trap_init() 中引用了这三个数组。将其拷贝到对应异常向量入口处  */
+/* 在 ../kernel/traps.c:trap_init() 中引用了这三个数组。将其拷贝到对应异常向量入口处  */
+u32 handle_tlbl[FASTPATH_SIZE] __cacheline_aligned;		
 u32 handle_tlbs[FASTPATH_SIZE] __cacheline_aligned;
 u32 handle_tlbm[FASTPATH_SIZE] __cacheline_aligned;
 #ifdef CONFIG_MIPS_PGD_C0_CONTEXT
