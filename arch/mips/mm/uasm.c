@@ -426,6 +426,7 @@ ISAFUNC(uasm_resolve_relocs)(struct uasm_reloc *rel, struct uasm_label *lab)
 }
 UASM_EXPORT_SYMBOL(ISAFUNC(uasm_resolve_relocs));
 
+/* 遍历rel[]中的元素，将地址属于[first, end]的元素的地址偏移off */
 void __uasminit
 ISAFUNC(uasm_move_relocs)(struct uasm_reloc *rel, u32 *first, u32 *end, long off)
 {
@@ -444,6 +445,7 @@ ISAFUNC(uasm_move_labels)(struct uasm_label *lab, u32 *first, u32 *end, long off
 }
 UASM_EXPORT_SYMBOL(ISAFUNC(uasm_move_labels));
 
+/* 将[first, end]的数据拷贝到[target, ]，然后将地址属于[first, end]的元素的地址变为[target, ]  */
 void __uasminit
 ISAFUNC(uasm_copy_handler)(struct uasm_reloc *rel, struct uasm_label *lab, u32 *first,
 		  u32 *end, u32 *target)
