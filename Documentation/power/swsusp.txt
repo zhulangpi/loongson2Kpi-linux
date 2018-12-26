@@ -23,9 +23,13 @@ Some warnings, first.
  * you have unplugged the USB devices with mounted filesystems on them;
  * see the FAQ below for details.  (This is not true for more traditional
  * power states like "standby", which normally don't turn USB off.)
+ * 如果在软挂起之前挂载了USB设备上的任何文件系统，则恢复后将无法访问这些文件系统，
+ * 并且您可能会丢失数据，就好像已经拔掉挂载了文件系统的USB设备一样; 
+ * 有关详细信息，请参阅下面的FAQ （对于更常见的电源状态，例如“待机”，这通常不会关闭USB。）
 
 You need to append resume=/dev/your_swap_partition to kernel command
 line. Then you suspend by
+你需要添加 resume=/dev/your_swap_partition 到内核命令行
 
 echo shutdown > /sys/power/disk; echo disk > /sys/power/state
 
@@ -35,6 +39,7 @@ echo platform > /sys/power/disk; echo disk > /sys/power/state
 
 . If you would like to write hibernation image to swap and then suspend
 to RAM (provided your platform supports it), you can try
+如果想写休眠镜像到交换区，然后挂起到RAM（假设你的平台支持），你可以
 
 echo suspend > /sys/power/disk; echo disk > /sys/power/state
 
@@ -43,8 +48,10 @@ support. For suspend and resume to work, make sure your disk drivers
 are built into kernel -- not modules. [There's way to make
 suspend/resume with modular disk drivers, see FAQ, but you probably
 should not do that.]
+如果用SATA磁盘，你需要最近的支持SATA挂起的内核。确保你的磁盘驱动编译进内核。
 
 If you want to limit the suspend image size to N bytes, do
+如果你想限制挂起镜像的大小在N字节内，
 
 echo N > /sys/power/image_size
 
@@ -66,6 +73,9 @@ save ourselves the time machine goes down and later boots up, energy costs
 are real high when running from batteries. The other gain is that we don't have to
 interrupt our programs so processes that are calculating something for a long
 time shouldn't need to be written interruptible.
+当今，很常见笔记本有挂起按钮。它保存机器状态到文件系统或一个分区，并切换到standby模式。
+之后，保存的状态被加载回ram并且机器继续工作。有两个好处，1.加快开关机速度 2.我们不必中断那些需要
+很长时间计算的进程。
 
 swsusp saves the state of the machine into active swaps and then reboots or
 powerdowns.  You must explicitly specify the swap partition to resume from with
@@ -73,9 +83,13 @@ powerdowns.  You must explicitly specify the swap partition to resume from with
 state. If the option ``noresume'' is specified as a boot parameter, it skips
 the resuming.  If the option ``hibernate=nocompress'' is specified as a boot
 parameter, it saves hibernation image without compression.
+swsusp保存状态到活动的交换区然后重启或断电。你必须通过内核选项确定从哪个交换区恢复。如果找到签名，
+它会加载恢复保存的状态。如果启动参数指定为"noresume"，启动会跳过恢复过程。如果启动参数
+指定"hibernate=nocompress"，保存休眠镜像时不会压缩。
 
 In the meantime while the system is suspended you should not add/remove any
 of the hardware, write to the filesystems, etc.
+挂起系统时不可以增减硬件，写入文件系统等
 
 Sleep states summary
 ====================
@@ -213,53 +227,70 @@ after resume. swapoff -a; swapon -a may also be useful.
 
 Q: What happens to devices during swsusp? They seem to be resumed
 during system suspend?
+设备在swsusp时发生了什么，它们在系统挂起时有恢复吗？
 
 A: That's correct. We need to resume them if we want to write image to
 disk. Whole sequence goes like
+是的，如果我们想向磁盘写入镜像，我们需要恢复他们。整个过程，
 
       Suspend part
       ~~~~~~~~~~~~
       running system, user asks for suspend-to-disk
+      用户发起 STD
 
       user processes are stopped
+      用户进程被停止
 
       suspend(PMSG_FREEZE): devices are frozen so that they don't interfere
       		      with state snapshot
+      设备被冻结从而不能干扰状态快照
 
       state snapshot: copy of whole used memory is taken with interrupts disabled
+      中断被禁止后所有被使用的内存
 
       resume(): devices are woken up so that we can write image to swap
+      设备被唤醒，从而可以写镜像到交换区
 
       write image to swap
+      写镜像到交换区
 
       suspend(PMSG_SUSPEND): suspend devices so that we can power off
+      挂起设备，从而可以断电了
 
       turn the power off
+      断电
 
       Resume part
       ~~~~~~~~~~~
       (is actually pretty similar)
 
       running system, user asks for suspend-to-disk
+      运行系统，用户发起STD
 
       user processes are stopped (in common case there are none, but with resume-from-initrd, no one knows)
+      用户进程是停止的
 
       read image from disk
+      从磁盘读镜像
 
       suspend(PMSG_FREEZE): devices are frozen so that they don't interfere
       		      with image restoration
+      设备被冻结，防止它们干扰镜像恢复
 
       image restoration: rewrite memory with image
+      用镜像重写内存
 
       resume(): devices are woken up so that system can continue
-
       thaw all user processes
+      设备被唤醒，系统接下来解冻所有用户进程
 
 Q: What is this 'Encrypt suspend image' for?
 
 A: First of all: it is not a replacement for dm-crypt encrypted swap.
 It cannot protect your computer while it is suspended. Instead it does
 protect from leaking sensitive data after resume from suspend.
+首先，这不是dm-crypt encrypted swap的替代品。Encrypt suspend image不能在电脑
+挂起后保护你的电脑。相反它防止敏感数据在从挂起恢复之后泄漏。
 
 Think of the following: you suspend while an application is running
 that keeps sensitive data in memory. The application itself prevents
@@ -273,6 +304,12 @@ on disk virtually forever. Thus it can happen that your system gets
 broken in weeks later and sensitive data which you thought were
 encrypted and protected are retrieved and stolen from the swap device.
 To prevent this situation you should use 'Encrypt suspend image'.
+思考如下情形：当一个应用持有敏感信息在内存时，你选择挂起系统。应用本身会阻止数据被
+交换出去。然而，挂起过程必须写这些数据到交换区来保证之后的恢复。没有挂起加密，你的
+敏感数据会被纯文本形式存储在磁盘上。这意味着，恢复之后，所有对用于挂起的交换区设备
+有直接访问的应用都可以访问你的敏感数据。如果你在恢复后不使用交换区，这些数据会永远
+保存在磁盘上。这样可能会发生，你的系统数周后奔溃了，你认为被加密保护的敏感数据被从
+交换设备中检索并偷窃。为了防止这种情形，你应该使用 'Encrypt suspend image'。
 
 During suspend a temporary key is created and this key is used to
 encrypt the data written to disk. When, during resume, the data was
@@ -283,6 +320,10 @@ you must then take care of is that you call 'mkswap' for the swap
 partition used for suspend as early as possible during regular
 boot. This asserts that any temporary key from an oopsed suspend or
 from a failed or aborted resume is erased from the swap device.
+在挂起时，一个临时密钥被创建，它被用于加密要写入磁盘的数据。在恢复时，当数据被读回内存时，
+临时密钥被销毁，意味着之后磁盘中的数据都不再可访问。你唯一要注意的是，在常规启动期间尽可
+能早地调用'mkswap'制作用于挂起的交换分区。这断言从交换设备中删除来自中止暂停或来自失败
+或中止的恢复的任何临时密钥。
 
 As a rule of thumb use encrypted swap to protect your data while your
 system is shut down or suspended. Additionally use the encrypted
@@ -290,11 +331,14 @@ suspend image to prevent sensitive data from being stolen after
 resume.
 
 Q: Can I suspend to a swap file?
+我可以挂起到交换文件吗
 
 A: Generally, yes, you can.  However, it requires you to use the "resume=" and
 "resume_offset=" kernel command line parameters, so the resume from a swap file
 cannot be initiated from an initrd or initramfs image.  See
 swsusp-and-swap-files.txt for details.
+当然可以。但是你需要使用"resume="和"resume_offset="内核参数。所以，不能从一个initrd或
+initramfs镜像中启动一个从交换文件中的恢复过程。
 
 Q: Is there a maximum system RAM size that is supported by swsusp?
 
@@ -304,6 +348,7 @@ Q: Does swsusp (to disk) use only one swap partition or can it use
 multiple swap partitions (aggregate them into one logical space)?
 
 A: Only one swap partition, sorry.
+STD必须使用一整个交换区，而不是多个。
 
 Q: If my application(s) causes lots of memory & swap space to be used
 (over half of the total system RAM), is it correct that it is likely
@@ -366,14 +411,18 @@ doing
 Q: Is this true that if I have a mounted filesystem on a USB device and
 I suspend to disk, I can lose data unless the filesystem has been mounted
 with "sync"?
+这是真的吗：如果我挂载了一个基于USB的文件系统并且STD，我会丢失数据除非文件系统被以"sync"选项挂载
 
 A: That's right ... if you disconnect that device, you may lose data.
 In fact, even with "-o sync" you can lose data if your programs have
 information in buffers they haven't written out to a disk you disconnect,
 or if you disconnect before the device finished saving data you wrote.
+是的。如果你断开那个设备，你可能会丢失数据。事实上，即使"-o sync"，如果你的程序在缓冲区里有没写进
+断开的磁盘的数据，或者你在设备完成保存你写入的数据前断开，你也可能丢失数据。
 
 Software suspend normally powers down USB controllers, which is equivalent
 to disconnecting all USB devices attached to your system.
+软件挂起通常断电USB控制器，这等同于给你系统的所有USB设备断电。
 
 Your system might well support low-power modes for its USB controllers
 while the system is asleep, maintaining the connection, using true sleep
@@ -382,6 +431,7 @@ modes like "suspend-to-RAM" or "standby".  (Don't write "disk" to the
 hardware that can use these modes through software suspend, although in
 theory some systems might support "platform" modes that won't break the
 USB connections.
+你的系统可能
 
 Remember that it's always a bad idea to unplug a disk drive containing a
 mounted filesystem.  That's true even when your system is asleep!  The
