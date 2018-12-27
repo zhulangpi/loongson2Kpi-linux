@@ -4,11 +4,15 @@ Using swap files with software suspend (swsusp)
 The Linux kernel handles swap files almost in the same way as it handles swap
 partitions and there are only two differences between these two types of swap
 areas:
+Linux内核处理交换文件几乎与处理交换分区的方式相同，这两种交换区域之间只有两个不同之处：
 (1) swap files need not be contiguous,
 (2) the header of a swap file is not in the first block of the partition that
 holds it.  From the swsusp's point of view (1) is not a problem, because it is
 already taken care of by the swap-handling code, but (2) has to be taken into
 consideration.
+（1）交换文件不需要是连续的，
+（2）交换文件的头部不在保存它的分区的第一个块中。从swsusp的观点来看（1）不是问题，
+因为它已经由交换处理代码处理，但必须考虑（2）。
 
 In principle the location of a swap file's header may be determined with the
 help of appropriate filesystem driver.  Unfortunately, however, it requires the
@@ -18,11 +22,15 @@ identify a swap file swsusp uses the name of the partition that holds the file
 and the offset from the beginning of the partition at which the swap file's
 header is located.  For convenience, this offset is expressed in <PAGE_SIZE>
 units.
+原则上，交换文件头的位置可以在适当的文件系统驱动程序的帮助下确定。然而，遗憾的是，
+它需要挂载交换文件的文件系统，如果这个文件系统是日志型的，则在从磁盘恢复期间无法挂载。
+因此，为了识别交换文件，swsusp使用保存文件的分区的名称以及交换文件头部所在分区开头的偏移量。
+为方便起见，此偏移量以<PAGE_SIZE>单位表示。
 
 In order to use a swap file with swsusp, you need to:
-
+为了使用交换文件来swsusp，你需要，
 1) Create the swap file and make it active, eg.
-
+创建交换文件并激活它，如，
 # dd if=/dev/zero of=<swap_file_path> bs=1024 count=<swap_file_size_in_k>
 # mkswap <swap_file_path>
 # swapon <swap_file_path>
@@ -31,9 +39,11 @@ In order to use a swap file with swsusp, you need to:
 FIBMAP ioctl and determine the location of the file's swap header, as the
 offset, in <PAGE_SIZE> units, from the beginning of the partition which
 holds the swap file.
+使用能在FIBMAP ioctl的帮助下bmap交换文件的应用程序，并从保存交换文件的分区的开头，
+以<PAGE_SIZE>为单位确定文件交换头的位置，作为偏移量。
 
 3) Add the following parameters to the kernel command line:
-
+在内核参数中添加以下参数
 resume=<swap_file_partition> resume_offset=<swap_file_offset>
 
 where <swap_file_partition> is the partition on which the swap file is located
@@ -41,7 +51,8 @@ and <swap_file_offset> is the offset of the swap header determined by the
 application in 2) (of course, this step may be carried out automatically
 by the same application that determines the swap file's header offset using the
 FIBMAP ioctl)
-
+其中<swap_file_partition>是交换文件所在的分区，<swap_file_offset>是2）中应用程序确定的交换头
+的偏移量（当然，此步骤可能由使用FIBMAP ioctl确定交换文件头部偏移量的同一应用程序自动执行））
 OR
 
 Use a userland suspend application that will set the partition and offset
@@ -49,12 +60,19 @@ with the help of the SNAPSHOT_SET_SWAP_AREA ioctl described in
 Documentation/power/userland-swsusp.txt (this is the only method to suspend
 to a swap file allowing the resume to be initiated from an initrd or initramfs
 image).
+使用userland suspend应用程序，它将在Documentation/power/userland-swsusp.txt中描述的
+SNAPSHOT_SET_SWAP_AREA ioctl的帮助下设置分区和偏移量（这是挂起到交换文件
+并允许从initrd或initramfs镜像中发起恢复过程的唯一手段）。
 
 Now, swsusp will use the swap file in the same way in which it would use a swap
 partition.  In particular, the swap file has to be active (ie. be present in
 /proc/swaps) so that it can be used for suspending.
+现在，swsusp将以与使用交换分区相同的方式使用交换文件。
+特别是，交换文件必须是活动的（即存在于/ proc / swaps中），以便它可以用于挂起。
 
 Note that if the swap file used for suspending is deleted and recreated,
 the location of its header need not be the same as before.  Thus every time
 this happens the value of the "resume_offset=" kernel command line parameter
 has to be updated.
+请注意，如果删除并重新创建用于挂起的交换文件，则其头部的位置不必与之前相同。
+因此，每次发生这种情况时，必须更新“resume_offset =”内核命令行参数的值。
