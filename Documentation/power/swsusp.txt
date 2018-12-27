@@ -431,13 +431,18 @@ modes like "suspend-to-RAM" or "standby".  (Don't write "disk" to the
 hardware that can use these modes through software suspend, although in
 theory some systems might support "platform" modes that won't break the
 USB connections.
-你的系统可能
+当系统处于睡眠状态时，您的系统可能会很好地支持其USB控制器的低功耗模式，使用真正的睡眠模式（如“挂起到RAM”或“待机”）
+来维持连接。（不要将“disk”写入/sys/power/state文件;写入“standby”或“mem”。）
+我们没有看到任何可以通过软件挂起使用这些模式的硬件，尽管理论上有些系统可能支持不会破坏USB连接的“平台”模式。
 
 Remember that it's always a bad idea to unplug a disk drive containing a
 mounted filesystem.  That's true even when your system is asleep!  The
 safest thing is to unmount all filesystems on removable media (such USB,
 Firewire, CompactFlash, MMC, external SATA, or even IDE hotplug bays)
 before suspending; then remount them after resuming.
+请记住，拔掉包含已挂载文件系统的磁盘驱动器总是一个坏主意。即使您的系统处于睡眠状态也是如此！
+最安全的做法是在挂起之前卸载可移动介质上的所有文件系统（如USB，Firewire，CompactFlash，MMC，外部SATA，甚至是IDE热插拔托架）;
+然后在恢复后重新挂载它们。
 
 There is a work-around for this problem.  For more information, see
 Documentation/usb/persist.txt.
