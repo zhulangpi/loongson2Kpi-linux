@@ -1,13 +1,16 @@
 
 System Power Management States
-
+系统功耗管理状态
 
 The kernel supports four power management states generically, though
 one is generic and the other three are dependent on platform support
 code to implement the low-level details for each state.
+内核通常支持四种功耗管理状态，尽管其中一种是通用状态，另外三种依赖于平台支持来实现底层细节。
 This file describes each state, what they are
 commonly called, what ACPI state they map to, and what string to write
 to /sys/power/state to enter that state
+本文件描述了每种状态，他们通常怎么称呼，他们映射到哪种ACPI状态，
+怎么通过写入/sys/power/state来进入各自状态。
 
 state:		Freeze / Low-Power Idle
 ACPI state:	S0
@@ -18,10 +21,13 @@ It allows more energy to be saved relative to idle by freezing user
 space and putting all I/O devices into low-power states (possibly
 lower-power than available at run time), such that the processors can
 spend more time in their idle states.
+该状态是一种通用、纯软件、轻量级低功耗状态。它通过冻结用户空间并置所有IO设备
+为低功耗状态（可能比运行时可用的功率更低）来节省相对于空闲更多的能耗。
 This state can be used for platforms without Standby/Suspend-to-RAM
 support, or it can be used in addition to Suspend-to-RAM (memory sleep)
 to provide reduced resume latency.
-
+这个状态可以在没有Standby/Suspend-to-RAM的平台上使用，除了STR（内存休眠）之外，
+还可以使用它提供减少的恢复延迟。
 
 State:		Standby / Power-On Suspend
 ACPI State:	S1
@@ -31,11 +37,13 @@ This state offers minimal, though real, power savings, while providing
 a very low-latency transition back to a working system. No operating
 state is lost (the CPU retains power), so the system easily starts up
 again where it left off. 
-
+此状态提供最小但实际的功耗节省，同时提供非常低的延迟转换回工作系统。
+没有运行状态丢失（CPU保持上电），因此系统可以在停止运行的地方轻松启动。
 We try to put devices in a low-power state equivalent to D1, which
 also offers low power savings, but low resume latency. Not all devices
 support D1, and those that don't are left on. 
-
+我们尝试将设备置于相当于D1的低功耗状态，这也提供低功耗节省，但恢复延迟低。
+并非所有设备都支持D1，而那些不支持D1的设备保持原状。
 
 State:		Suspend-to-RAM
 ACPI State:	S3
@@ -44,15 +52,17 @@ String:		"mem"
 This state offers significant power savings as everything in the
 system is put into a low-power state, except for memory, which is
 placed in self-refresh mode to retain its contents. 
-
+这种状态可以显著节省功耗，因为系统中的所有内容都处于低功耗状态，
+但存储器除外，存储器处于自刷新模式以保留其内容。
 System and device state is saved and kept in memory. All devices are
 suspended and put into D3. In many cases, all peripheral buses lose
 power when entering STR, so devices must be able to handle the
 transition back to the On state. 
-
+系统和设备状态被保存在内存中。 所有设备都被挂起并置入D3。
+在许多情况下，所有外设总线在进入STR时都会断电，因此设备必须能够处理好On状态返回。
 For at least ACPI, STR requires some minimal boot-strapping code to
 resume the system from STR. This may be true on other platforms. 
-
+至少对于ACPI，STR需要一些最小的引导捆绑代码才能从STR恢复系统。在其他平台上可能也是如此。
 
 State:		Suspend-to-disk
 ACPI State:	S4
@@ -63,22 +73,32 @@ the absence of low-level platform support for power management. This
 state operates similarly to Suspend-to-RAM, but includes a final step
 of writing memory contents to disk. On resume, this is read and memory
 is restored to its pre-suspend state. 
-
+这种状态可以实现最大的功耗节省，即使底层平台没有电源管理的支持也可以使用。
+此状态与Suspend-to-RAM类似，除了将内存内容写入磁盘的最后一步。
+在恢复时，将读取此内存并将内存恢复到其暂停前状态。
 STD can be handled by the firmware or the kernel. If it is handled by
 the firmware, it usually requires a dedicated partition that must be
 setup via another operating system for it to use. Despite the
 inconvenience, this method requires minimal work by the kernel, since
 the firmware will also handle restoring memory contents on resume. 
-
+STD可以由固件或内核处理。如果它由固件处理，它通常需要一个专用分区，
+必须通过另一个操作系统进行设置才能使用。尽管不方便，但这种方法需要的内核工作最少，
+因为固件还将负责在恢复阶段时恢复存储器内容。
 For suspend-to-disk, a mechanism called 'swsusp' (Swap Suspend) is used
 to write memory contents to free swap space. swsusp has some restrictive
 requirements, but should work in most cases. Some, albeit outdated,
 documentation can be found in Documentation/power/swsusp.txt.
 Alternatively, userspace can do most of the actual suspend to disk work,
 see userland-swsusp.txt.
-
+对于挂起到磁盘，称为“swsusp”（交换挂起）的机制用于将内存内容写入空闲交换空间。
+swsusp有一些限制性要求，但在大多数情况下都应该有效。一些虽然过时的文档可以在
+Documentation/power/swsusp.txt中找到。或者，用户空间可以执行大部分实际挂起到磁盘的工作，
+请参阅userland-swsusp.txt。
 Once memory state is written to disk, the system may either enter a
 low-power state (like ACPI S4), or it may simply power down. Powering
 down offers greater savings, and allows this mechanism to work on any
 system. However, entering a real low-power state allows the user to
 trigger wake up events (e.g. pressing a key or opening a laptop lid).
+一旦将存储器状态写入磁盘，系统可以进入低功耗状态（如ACPI S4），也可以简单地断电。
+关闭电源可以节省更多成本，并允许此机制在任何系统上运行。然而，进入真正的低功率状态
+允许用户触发唤醒事件（例如，按下键或打开膝上型电脑盖）。
