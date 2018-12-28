@@ -8,12 +8,15 @@ Most of the code in Linux is device drivers, so most of the Linux power
 management (PM) code is also driver-specific.  Most drivers will do very
 little; others, especially for platforms with small batteries (like cell
 phones), will do a lot.
+Linux大部分代码都是设备驱动，所以大部分的Linux功耗管理代码也是驱动相关的。
+大部分驱动做的工作很少；其他的，尤其时带有小电池的平台（类似手机）会做的很多工作。
 
 This writeup gives an overview of how drivers interact with system-wide
 power management goals, emphasizing the models and interfaces that are
 shared by everything that hooks up to the driver model core.  Read it as
 background for the domain-specific work you'd do with any specific driver.
-
+本文概述了驱动程序如何与系统级的功耗管理目标进行交互，强调了用于挂接到驱动程序模型核心的
+的模型和接口，这些模型和接口是通用的。将其作为您开发特定驱动程序的领域特定工作的背景阅读。
 
 Two Models for Device Power Management
 ======================================
@@ -25,11 +28,14 @@ states:
 	low-power states like "suspend" (also known as "suspend-to-RAM"), or
 	(mostly for systems with disks) "hibernation" (also known as
 	"suspend-to-disk").
+        驱动进入低功耗状态，这是进入系统级低功耗状态工作的一部分。
 
 	This is something that device, bus, and class drivers collaborate on
 	by implementing various role-specific suspend and resume methods to
 	cleanly power down hardware and software subsystems, then reactivate
 	them without loss of data.
+        这是设备，总线和类驱动程序通过实现各种特定的挂起和恢复方法来协作，
+        以便干净利落地关闭硬件和软件子系统，然后在不丢失数据的情况下重新激活它们。
 
 	Some drivers can manage hardware wakeup events, which make the system
 	leave the low-power state.  This feature may be enabled or disabled
@@ -37,6 +43,10 @@ states:
 	drivers the ioctl interface used by ethtool may also be used for this
 	purpose); enabling it may cost some power usage, but let the whole
 	system enter low-power states more often.
+        某些驱动程序可以管理硬件唤醒事件，从而使系统退出低功耗状态。可以使用相关的
+        /sys/device/.../power/wakeup文件启用或禁用此功能（对于以太网驱动程序，
+        ethtool使用的ioctl接口也可用于此目的）;启用它可能会耗费一些电力，
+        但能让整个系统更多地进入低功耗状态。
 
     Runtime Power Management model:
 	Devices may also be put into low-power states while the system is
