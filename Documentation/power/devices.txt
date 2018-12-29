@@ -46,7 +46,7 @@ states:
         某些驱动程序可以管理硬件唤醒事件，从而使系统退出低功耗状态。可以使用相关的
         /sys/device/.../power/wakeup文件启用或禁用此功能（对于以太网驱动程序，
         ethtool使用的ioctl接口也可用于此目的）;启用它可能会耗费一些电力，
-        但能让整个系统更多地进入低功耗状态。
+        但能让整个系统更久地处于低功耗状态。
 
     Runtime Power Management model:
 	Devices may also be put into low-power states while the system is
@@ -58,6 +58,10 @@ states:
 	operations on the device for this purpose.  Devices put into low power
 	states at run time may require special handling during system-wide power
 	transitions (suspend or hibernation).
+	在系统运行时，设备也可以进入低功率状态，原则上与其他电源管理活动无关。但是，
+        设备通常不是彼此独立的（例如，除非所有子设备都被挂起，否则不能暂停父设备）。此外，
+        根据设备所在的总线类型，可能需要为此在设备上执行一些特定于总线的操作。在运行时进入
+        低功耗状态的设备可能需要在系统级电源转换（暂停或休眠）时进行特殊处理。
 
 	For these reasons not only the device driver itself, but also the
 	appropriate subsystem (bus type, device type or device class) driver and
@@ -65,6 +69,9 @@ states:
 	sleep power management case, they need to collaborate by implementing
 	various role-specific suspend and resume methods, so that the hardware
 	is cleanly powered down and reactivated without data or service loss.
+        由于这些原因，不仅设备驱动程序本身，而且适当的子系统（总线类型，设备类型或设备类）驱动程序
+        和PM核心都涉及运行时电源管理。与系统睡眠电源管理案例一样，他们需要通过各种特定的
+        挂起和恢复方法进行协作，以便在没有数据或服务丢失的情况下干净地关闭和重新激活硬件。
 
 There's not a lot to be said about those low-power states except that they are
 very system-specific, and often device-specific.  Also, that if enough devices
@@ -72,16 +79,21 @@ have been put into low-power states (at runtime), the effect may be very similar
 to entering some system-wide low-power state (system sleep) ... and that
 synergies exist, so that several drivers using runtime PM might put the system
 into a state where even deeper power saving options are available.
+关于那些低功耗状态没有太多可说的，除了它们是非常特定于系统的，并且通常是特定于设备的。
+此外，如果有足够的设备进入低功耗状态（在运行时），效果可能非常类似于进入一些系统级的低功耗状态（系统睡眠）
+......并且存在协同作用，因此有几个使用运行时PM的驱动程序可能会使系统进入可以获得更深省电选项的状态。
 
 Most suspended devices will have quiesced all I/O: no more DMA or IRQs (except
 for wakeup events), no more data read or written, and requests from upstream
 drivers are no longer accepted.  A given bus or platform may have different
 requirements though.
+大多数挂起的设备将使所有I/O静默：不再有DMA或IRQ（唤醒事件除外），不再读取或写入数据，
+并且不再接受来自上游驱动程序的请求。但是，给定的总线或平台可能有不同的要求。
 
 Examples of hardware wakeup events include an alarm from a real time clock,
 network wake-on-LAN packets, keyboard or mouse activity, and media insertion
 or removal (for PCMCIA, MMC/SD, USB, and so on).
-
+硬件唤醒事件包括，来自实时时钟的警报，网络LAN唤醒数据包，键盘或鼠标活动以及媒体插入或移除（用于PCMCIA，MMC / SD，USB等）。
 
 Interfaces for Entering System Sleep States
 ===========================================
@@ -89,13 +101,15 @@ There are programming interfaces provided for subsystems (bus type, device type,
 device class) and device drivers to allow them to participate in the power
 management of devices they are concerned with.  These interfaces cover both
 system sleep and runtime power management.
-
+子系统（总线类型，设备类型，设备类）和设备驱动程序提供了编程接口，
+以允许参与所关注设备的电源管理。这些接口涵盖系统睡眠和运行时电源管理。
 
 Device Power Management Operations
 ----------------------------------
 Device power management operations, at the subsystem level as well as at the
 device driver level, are implemented by defining and populating objects of type
 struct dev_pm_ops:
+子系统级别以及设备驱动程序级别的设备电源管理操作是通过定义和填充struct dev_pm_ops类型的对象来实现的：
 
 struct dev_pm_ops {
 	int (*prepare)(struct device *dev);
@@ -128,6 +142,7 @@ are also described in that file.  Their roles will be explained in what follows.
 For now, it should be sufficient to remember that the last three methods are
 specific to runtime power management while the remaining ones are used during
 system-wide power transitions.
+该结构在include/linux/pm.h中定义，其中包含的方法也在该文件中描述。 他们的角色将在下面解释。 现在，应该记住，最后三种方法特定于运行时电源管理，而其余方法则在系统范围的电源转换期间使用。
 
 There also is a deprecated "old" or "legacy" interface for power management
 operations available at least for some subsystems.  This approach does not use
