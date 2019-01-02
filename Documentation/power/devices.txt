@@ -142,14 +142,16 @@ are also described in that file.  Their roles will be explained in what follows.
 For now, it should be sufficient to remember that the last three methods are
 specific to runtime power management while the remaining ones are used during
 system-wide power transitions.
-该结构在include/linux/pm.h中定义，其中包含的方法也在该文件中描述。 他们的角色将在下面解释。 现在，应该记住，最后三种方法特定于运行时电源管理，而其余方法则在系统范围的电源转换期间使用。
+该结构体类型在include/linux/pm.h中定义，其中包含的方法也在该文件中描述。他们的功能将在下面解释。
+现在，应该记住，最后三种方法特定于运行时功耗管理，而其余方法则在系统级功耗转换期间使用。
 
 There also is a deprecated "old" or "legacy" interface for power management
 operations available at least for some subsystems.  This approach does not use
 struct dev_pm_ops objects and it is suitable only for implementing system sleep
 power management methods.  Therefore it is not described in this document, so
 please refer directly to the source code for more information about it.
-
+还有一个已弃用的“旧”或“传统”接口，用于某些子系统的功耗管理操作。此方法不使用struct dev_pm_ops对象，
+它仅适用于实现系统睡眠功耗管理方法。因此，本文档中未对其进行描述，因此请直接参阅源代码以获取有关它的更多信息。
 
 Subsystem-Level Methods
 -----------------------
@@ -160,16 +162,23 @@ interest to the people writing infrastructure for platforms and buses, like PCI
 or USB, or device type and device class drivers.  They also are relevant to the
 writers of device drivers whose subsystems (PM domains, device types, device
 classes and bus types) don't provide all power management methods.
+挂起和恢复设备的核心方法驻留在struct dev_pm_domain的ops成员指向的struct dev_pm_ops中，
+或者由struct bus_type，struct device_type和struct class的pm成员指向。人们最感兴趣的是
+为平台和总线编写基础设施的人，如PCI或USB，或设备类型和设备类驱动程序。 它们还与设备驱动程序的
+编写者相关，其子系统（PM域，设备类型，设备类和总线类型）不提供所有功耗管理方法。
 
 Bus drivers implement these methods as appropriate for the hardware and the
 drivers using it; PCI works differently from USB, and so on.  Not many people
 write subsystem-level drivers; most driver code is a "device driver" that builds
 on top of bus-specific framework code.
+总线驱动程序实现这些方法用于硬件和驱动程序使用; PCI的工作方式与USB不同，依此类推。
+没有多少人编写子系统级驱动程序; 大多数驱动程序代码是构建在特定于总线的框架代码之上的“设备驱动程序”。
 
 For more information on these driver calls, see the description later;
 they are called in phases for every device, respecting the parent-child
 sequencing in the driver model tree.
-
+有关这些驱动程序调用的更多信息，请参阅后面的说明;
+它们被所有设备阶段性的调用，按照驱动程序模型树中的父子序列。
 
 /sys/devices/.../power/wakeup files
 -----------------------------------
@@ -178,6 +187,9 @@ of system wakeup events (hardware signals that can force the system out of a
 sleep state).  These fields are initialized by bus or device driver code using
 device_set_wakeup_capable() and device_set_wakeup_enable(), defined in
 include/linux/pm_wakeup.h.
+驱动程序模型中的所有设备对象都包含控制系统唤醒事件处理的字段（可强制系统退出睡眠状态的硬件信号）。
+这些字段由总线或设备驱动程序代码初始化，使用device_set_wakeup_capable（）和device_set_wakeup_enable（），
+在include / linux / pm_wakeup.h中定义。
 
 The "power.can_wakeup" flag just records whether the device (and its driver) can
 physically support wakeup events.  The device_set_wakeup_capable() routine
@@ -187,6 +199,10 @@ its system wakeup mechanism and for notifying the PM core of system wakeup
 events signaled by the device.  This object is only present for wakeup-capable
 devices (i.e. devices whose "can_wakeup" flags are set) and is created (or
 removed) by device_set_wakeup_capable().
+“power.can_wakeup”标志仅记录设备（及其驱动程序）物理上是否支持唤醒事件。device_set_wakeup_capable（）
+例程会影响此标志。“power.wakeup”字段是指向struct wakeup_source类型的对象的指针，
+该对象用于控制设备是否应该使用其系统唤醒机制以及用于通知设备发出信号的系统唤醒事件的PM核心。
+该对象仅适用于具有唤醒功能的设备（即设置了“can_wakeup”标志的设备），并由device_set_wakeup_capable（）创建（或删除）。
 
 Whether or not a device is capable of issuing wakeup events is a hardware
 matter, and the kernel is responsible for keeping track of it.  By contrast,
@@ -198,6 +214,10 @@ system wakeup.  This file is only present if the "power.wakeup" object exists
 for the given device and is created (or removed) along with that object, by
 device_set_wakeup_capable().  Reads from the file will return the corresponding
 string.
+设备是否能够发出唤醒事件是硬件问题，内核负责跟踪它。相比之下，具有唤醒功能的设备是否应该发出唤醒事件是一个策略决策，
+它由用户空间通过一个sysfs attribute管理：“power/wakeup”文件。 用户空间可以将字符串“enabled”或“disabled”写入其中，
+以分别指示设备是否应该发信号通知系统唤醒。仅当给定设备存在“power.wakeup”对象并且与device_set_wakeup_capable（）
+一起创建（或删除）该对象时，才会出现此文件。从文件中读取将返回相应的字符串。
 
 The "power/wakeup" file is supposed to contain the "disabled" string initially
 for the majority of devices; the major exceptions are power buttons, keyboards,
@@ -205,6 +225,9 @@ and Ethernet adapters whose WoL (wake-on-LAN) feature has been set up with
 ethtool.  It should also default to "enabled" for devices that don't generate
 wakeup requests on their own but merely forward wakeup requests from one bus to
 another (like PCI Express ports).
+“power/wakeup”文件应该初始为大多数设备的“禁用”字符串; 主要的例外是电源按钮，键盘和以太网适配器，
+其WoL（局域网唤醒）功能已使用ethtool设置。对于不自行生成唤醒请求的设备，它也应该默认为“启用”，
+而只是将唤醒请求从一个总线转发到另一个总线（如PCI Express端口）。
 
 The device_may_wakeup() routine returns true only if the "power.wakeup" object
 exists and the corresponding "power/wakeup" file contains the string "enabled".
@@ -214,6 +237,8 @@ mechanisms are enabled or disabled directly by drivers, they also should use
 device_may_wakeup() to decide what to do during a system sleep transition.
 Device drivers, however, are not supposed to call device_set_wakeup_enable()
 directly in any case.
+仅当“power.wakeup”对象存在且相应的“power/wakeup”文件包含字符串“enabled”时，
+device_may_wakeup（）例程才返回true。子系统使用此信息（如PCI总线类型代码）来查看是否启用设备的唤醒机制。 如果驱动程序直接启用或禁用设备唤醒机制，则它们还应使用device_may_wakeup（）来决定在系统睡眠转换期间要执行的操作。 但是，设备驱动程序不应该在任何情况下直接调用device_set_wakeup_enable（）。
 
 It ought to be noted that system wakeup is conceptually different from "remote
 wakeup" used by runtime power management, although it may be supported by the
