@@ -4,6 +4,7 @@ Debugging hibernation and suspend
 1. Testing hibernation (aka suspend to disk or STD)
 
 To check if hibernation works, you can try to hibernate in the "reboot" mode:
+为了验证休眠功能正常，你可以尝试在“reboot”模式下休眠：
 
 # echo reboot > /sys/power/disk
 # echo disk > /sys/power/state
@@ -17,24 +18,32 @@ resuming the system.]  Moreover, hibernating in the "reboot" and "shutdown"
 modes causes the PM core to skip some platform-related callbacks which on ACPI
 systems might be necessary to make hibernation work.  Thus, if your machine fails
 to hibernate or resume in the "reboot" mode, you should try the "platform" mode:
+并且系统应创建休眠镜像，重新启动，恢复并返回到启动休眠时的命令行。如果这样，休眠很可能是能正常工作的。
+尽管如此，您仍需要连续几次重复测试以确保。[这是必要的，因为有些问题只会在第二次尝试暂停和恢复系统时出现。]
+此外，在“重启”和“关闭”模式下休眠会导致PM内核跳过某些与平台相关的回调，这些回调在ACPI系统上可能
+是休眠工作所必需的。因此，如果您的机器无法在“reboot”模式下休眠或恢复，您应该尝试“platform”模式：
 
 # echo platform > /sys/power/disk
 # echo disk > /sys/power/state
 
 which is the default and recommended mode of hibernation.
+这也是默认且推荐的休眠模式。
 
 Unfortunately, the "platform" mode of hibernation does not work on some systems
 with broken BIOSes.  In such cases the "shutdown" mode of hibernation might
 work:
+不幸的是，“platform”模式的休眠在一些BIOS有问题的系统上不能工作。这时，“shutdown”模式的休眠可能会有效：
 
 # echo shutdown > /sys/power/disk
 # echo disk > /sys/power/state
 
 (it is similar to the "reboot" mode, but it requires you to press the power
 button to make the system resume).
+（这类似于“reboot”模式，但它需要你按下电源键来唤醒系统）
 
 If neither "platform" nor "shutdown" hibernation mode works, you will need to
 identify what goes wrong.
+都不行时，你需要确认哪儿错了。
 
 a) Test modes of hibernation
 
@@ -42,6 +51,8 @@ To find out why hibernation fails on your system, you can use a special testing
 facility available if the kernel is compiled with CONFIG_PM_DEBUG set.  Then,
 there is the file /sys/power/pm_test that can be used to make the hibernation
 core run in a test mode.  There are 5 test modes available:
+为了查找为什么休眠失败了，你可以在内核编译了“CONFIG_PM_DEBUG”选项时，使用一个特殊的测试
+设施。可以找到/sys/power/pm_test文件，它用于在测试模式下使休眠核心工作。有五种测试模式：
 
 freezer
 - test the freezing of processes
@@ -64,12 +75,14 @@ core
 
 (*) the platform global control methods are only available on ACPI systems
     and are only tested if the hibernation mode is set to "platform"
+带（*）表示平台全局控制方法只在ACPI系统上可用且只在休眠模式是“platform”时测试。
 
 To use one of them it is necessary to write the corresponding string to
 /sys/power/pm_test (eg. "devices" to test the freezing of processes and
 suspending devices) and issue the standard hibernation commands.  For example,
 to use the "devices" test mode along with the "platform" mode of hibernation,
 you should do the following:
+写相应字符串到/sys/power/pm_test来使能对应测试模式并且发出标准的休眠命令。
 
 # echo devices > /sys/power/pm_test
 # echo platform > /sys/power/disk
@@ -81,12 +94,18 @@ resume devices and thaw processes.  If "platform" is written to
 invoke the global control methods (eg. ACPI global control methods) used to
 prepare the platform firmware for hibernation.  Next, it will wait 5 seconds and
 invoke the platform (eg. ACPI) global methods used to cancel hibernation etc.
+然后，内核会冻结进程、挂起设备、等待五秒、恢复设备、解冻进程。如果“platform”被写进/sys/power/pm_test，
+挂起设备后，内核会额外的调用全局控制方法（如，ACPI全局控制方法）来准备用于休眠的平台固件。
+下一步，内核会等待五秒并调用用于退出休眠的平台全局方法。
 
 Writing "none" to /sys/power/pm_test causes the kernel to switch to the normal
 hibernation/suspend operations.  Also, when open for reading, /sys/power/pm_test
 contains a space-separated list of all available tests (including "none" that
 represents the normal functionality) in which the current test level is
 indicated by square brackets.
+写“none”到/sys/power/pm_test来使内核切换到普通的休眠/挂起操作。并且，当读取时，
+/sys/power/pm_test包含一个空格分隔的列表，列出了所有可用的测试（包括代表普通功能的“none”），
+当前测试模式被用方括号指示。
 
 Generally, as you can see, each test level is more "invasive" than the previous
 one and the "core" level tests the hardware and drivers as deeply as possible
@@ -95,12 +114,18 @@ the "platform" test will fail as well and so on.  Thus, as a rule of thumb, you
 should try the test modes starting from "freezer", through "devices", "platform"
 and "processors" up to "core" (repeat the test on each level a couple of times
 to make sure that any random factors are avoided).
+通常，正如您所看到的，每个测试级别比前一级别更具“侵入性”，“core”级别在不创建休眠镜像的情况下
+尽可能深地测试硬件和驱动程序。显然，如果“devices”测试失败，“platform”测试也将失败，依此类推。因此，
+根据经验，您应该尝试从“freezer”，“devices”，“platform”和“processors”到“core”的测试模式
+（在每个级别上重复测试几次以避免任何随机因素）。
 
 If the "freezer" test fails, there is a task that cannot be frozen (in that case
 it usually is possible to identify the offending task by analysing the output of
 dmesg obtained after the failing test).  Failure at this level usually means
 that there is a problem with the tasks freezer subsystem that should be
 reported.
+如果“freezer”测试失败，则存在任务不能被冻结（在这种情况下，通常可以通过分析在失败测试之后获得的
+dmesg的输出来识别违规任务）。此级别的故障通常意味着应报告的任务冷冻子系统存在问题。
 
 If the "devices" test fails, most likely there is a driver that cannot suspend
 or resume its device (in the latter case the system may hang or become unstable
@@ -111,37 +136,52 @@ you can carry out a binary search according to the rules:
 have been loaded before the test),
 - if the test succeeds, load a half of the drivers you have unloaded most
 recently and repeat.
+如果“devices”测试失败，则很可能存在无法暂停或恢复其设备的驱动程序（在后一种情况下，系统可能会在测试后挂起或变得不稳定，因此请考虑到这一点）。 要查找此驱动程序，您可以按下列步骤执行二分法搜索：
+ - 如果测试失败，卸载当前加载的一半驱动程序并重复（这可能涉及重新启动系统，因此请始终注意测试前已加载的驱动程序），
+ - 如果测试成功，请加载最近卸载的一半驱动程序并重复。
 
 Once you have found the failing driver (there can be more than just one of
 them), you have to unload it every time before hibernation.  In that case please
 make sure to report the problem with the driver.
+一旦找到了故障驱动程序（可能不止一个），您每次在休眠之前都必须卸载它。
+在这种情况下，请务必报告驱动程序的问题。
 
 It is also possible that the "devices" test will still fail after you have
 unloaded all modules. In that case, you may want to look in your kernel
 configuration for the drivers that can be compiled as modules (and test again
 with these drivers compiled as modules).  You may also try to use some special
 kernel command line options such as "noapic", "noacpi" or even "acpi=off".
+可能你卸载了所有模块后“devices”测试仍然失败。那样的话，你可能想查看你的内核配置来寻找
+可以编译成模块的驱动（并测试）。你也可能使用一些特殊的内核命令行，如，"noapic", "noacpi"甚至"acpi=off"。
 
 If the "platform" test fails, there is a problem with the handling of the
 platform (eg. ACPI) firmware on your system.  In that case the "platform" mode
 of hibernation is not likely to work.  You can try the "shutdown" mode, but that
 is rather a poor man's workaround.
+如果“platform”测试失败，则系统上的平台（例如ACPI）固件的处理存在问题。
+在这种情况下，“platform”模式的休眠不太可能起作用。 您可以尝试“shutdown”模式，但这是一个穷人的解决方法。
 
 If the "processors" test fails, the disabling/enabling of nonboot CPUs does not
 work (of course, this only may be an issue on SMP systems) and the problem
 should be reported.  In that case you can also try to switch the nonboot CPUs
 off and on using the /sys/devices/system/cpu/cpu*/online sysfs attributes and
 see if that works.
+如果“processors”测试失败，则，禁用/启用非引导CPU功能不起作用（当然，这只存在于SMP系统上）并且应该报告该问题。
+在这种情况下，您还可以尝试使用/sys/devices/system/cpu/cpu*/online 该sysfs attributes关闭和打开非引导CPU，看看是否有效。
 
 If the "core" test fails, which means that suspending of the system/platform
 devices has failed (these devices are suspended on one CPU with interrupts off),
 the problem is most probably hardware-related and serious, so it should be
 reported.
+如果“core”测试失败，这意味着系统/平台设备的挂起失败（这些设备在一个中断关闭的CPU上挂起），
+问题很可能与硬件相关且严重，因此应该报告。
 
 A failure of any of the "platform", "processors" or "core" tests may cause your
 system to hang or become unstable, so please beware.  Such a failure usually
 indicates a serious problem that very well may be related to the hardware, but
 please report it anyway.
+任何“platform”，“processors”或“core”测试失败都可能导致系统挂起或变得不稳定，所以请注意。
+这种故障通常表明一个很可能与硬件有关的严重的问题，但无论如何请报告。
 
 b) Testing minimal configuration
 
@@ -153,6 +193,10 @@ can try to compile more drivers as modules, so that they can be tested
 individually.  Otherwise, there is a problem with a modular driver and you can
 find it by loading a half of the modules you normally use and binary searching
 in accordance with the algorithm:
+如果所有休眠测试模式都有效，则可以使用“init=/bin/bash”命令行参数启动系统，并尝试
+在“reboot”，“shutdown”和“platform”模式下休眠。如果这不起作用，可能存在静态编译到内核中的
+驱动程序的问题，您可以尝试将更多驱动程序编译为模块，以便可以单独测试它们。否则，模块化
+驱动程序存在问题，您可以通过加载半数的模块并根据二分法搜索来找到它：
 - if there are n modules loaded and the attempt to suspend and resume fails,
 unload n/2 of the modules and try again (that would probably involve rebooting
 the system),
@@ -174,12 +218,20 @@ information about the reasons of the suspend (resume) failure.  Alternatively,
 it may be possible to use a FireWire port for debugging with firescope
 (ftp://ftp.firstfloor.org/pub/ak/firescope/).  On x86 it is also possible to
 use the PM_TRACE mechanism documented in Documentation/power/s2ram.txt .
+如果休眠在您的系统上不起作用，即使是最小配置。且尽可能将驱动程序编译为模块的方法不实用或
+某些模块无法卸载，您可以使用一种更高级的调试技术来查找问题。首先，如果您的板子有串口，您可以
+使用'no_console_suspend'参数启动内核，并尝试使用串口记录内核消息。这可能会为您提供有关
+挂起（恢复）失败原因的一些信息。或者，也可以使用FireWire端口通过firescope进行调试
+（ftp://ftp.firstfloor.org/pub/ak/firescope/）。在x86上，还可以使用
+Documentation/power/s2ram.txt中记录的PM_TRACE机制。
 
 2. Testing suspend to RAM (STR)
 
 To verify that the STR works, it is generally more convenient to use the s2ram
 tool available from http://suspend.sf.net and documented at
 http://en.opensuse.org/SDB:Suspend_to_RAM.
+要验证STR的工作，通常使用http://suspend.sf.net上提供的s2ram工具更方便，
+文档在http://en.opensuse.org/SDB:Suspend_to_RAM。
 
 Namely, after writing "freezer", "devices", "platform", "processors", or "core"
 into /sys/power/pm_test (available if the kernel is compiled with
@@ -189,10 +241,16 @@ hibernation, so please refer to Section 1 for more information about them.  In
 particular, the "core" test allows you to test everything except for the actual
 invocation of the platform firmware in order to put the system into the sleep
 state.
+即，在将“freezer”，“devices”，“platform”，“processors”或“core”写入/sys/power/pm_test
+（如果内核是使用CONFIG_PM_DEBUG设置编译时可用）之后，挂起代码将在测试中对应于给定字符串的模式起作用。
+STR测试模式的定义方式与休眠方式相同，因此有关它们的更多信息，请参阅第1节。特别地，
+“core”测试允许您测试除平台固件中使系统进入睡眠状态的调用之外的所有内容。
 
 Among other things, the testing with the help of /sys/power/pm_test may allow
 you to identify drivers that fail to suspend or resume their devices.  They
 should be unloaded every time before an STR transition.
+除其他外，在/sys/power/pm_test的帮助下进行测试可以让您识别无法挂起或恢复其设备的驱动程序。
+在每次STR转换之前，都应该卸载它们。
 
 Next, you can follow the instructions at http://en.opensuse.org/s2ram to test
 the system, but if it does not work "out of the box", you may need to boot it
@@ -201,6 +259,10 @@ case, you may be able to search for failing drivers by following the procedure
 analogous to the one described in section 1.  If you find some failing drivers,
 you will have to unload them every time before an STR transition (ie. before
 you run s2ram), and please report the problems with them.
+接下来，您可以按照http://en.opensuse.org/s2ram上的说明测试系统，但如果它不能“开箱即用”，
+您可能需要使用“init=/bin/bash”启动它并在最小配置中测试s2ram。在这种情况下，您可以按照
+与第1节中描述的类似的过程搜索故障驱动程序。如果发现某些故障驱动程序，每次必须在STR转换之前
+卸载它们（即在您之前运行s2ram之前），请反馈问题。
 
 There is a debugfs entry which shows the suspend to RAM statistics. Here is an
 example of its output.
@@ -225,3 +287,5 @@ Field success means the success number of suspend to RAM, and field fail means
 the failure number. Others are the failure number of different steps of suspend
 to RAM. suspend_stats just lists the last 2 failed devices, error number and
 failed step of suspend.
+字段“success”表示挂起到RAM的成功次数，字段“fail”表示失败次数。其他是STR的不同步骤的失败次数。
+suspend_stats只列出最后2个失败的设备，错误号和挂起失败的阶段。
