@@ -1,10 +1,12 @@
 Interaction of Suspend code (S3) with the CPU hotplug infrastructure
+挂起代码与CPU热插拔框架的交互
 
      (C) 2011 Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 
 
 I. How does the regular CPU hotplug code differ from how the Suspend-to-RAM
    infrastructure uses it internally? And where do they share common code?
+常规CPU热插拔代码与Suspend-to-RAM框架在内部使用它时有何不同？他们共享哪些代码？
 
 Well, a picture is worth a thousand words... So ASCII art follows :-)
 
@@ -15,8 +17,12 @@ But please note that here, only the call paths are illustrated, with the aim
 of describing where they take different paths and where they share code.
 What happens when regular CPU hotplug and Suspend-to-RAM race with each other
 is not depicted here.]
+[这描述了内核当前的设计，并且仅关注冷冻器和CPU热插拔的交互，并且还试图阐明所涉及的锁。
+它还概述了所涉及的通知。但请注意，此处仅说明了调用路径，目的是描述它们采用不同路径的位置
+以及它们共享代码的位置。当这里没有描述常规CPU热插拔和挂起到RAM之间相互竞争时会发生什么。
 
 On a high level, the suspend-resume cycle goes like this:
+上层来看，挂起-恢复周期看起来如下：
 
 |Freeze| -> |Disable nonboot| -> |Do suspend| -> |Enable nonboot| -> |Thaw |
 |tasks |    |     cpus      |    |          |    |     cpus     |    |tasks|
@@ -32,14 +38,14 @@ More details follow:
                                     sysfs file
                                         |
                                         v
-                               Acquire pm_mutex lock
+                               Acquire pm_mutex lock        获得锁
                                         |
                                         v
-                             Send PM_SUSPEND_PREPARE
+                             Send PM_SUSPEND_PREPARE        发送通知
                                    notifications
                                         |
                                         v
-                                   Freeze tasks
+                                   Freeze tasks             冻结任务
                                         |
                                         |
                                         v
@@ -47,80 +53,81 @@ More details follow:
                                    /* start */
                                         |
                                         v
-                            Acquire cpu_add_remove_lock
+                            Acquire cpu_add_remove_lock     获得锁cpu_add_remove_lock
                                         |
                                         v
-                             Iterate over CURRENTLY
+                             Iterate over CURRENTLY         在当前online的CPU上迭代
                                    online CPUs
                                         |
                                         |
                                         |                ----------
                                         v                          | L
              ======>               _cpu_down()                     |
-            |              [This takes cpuhotplug.lock             |
-  Common    |               before taking down the CPU             |
-   code     |               and releases it when done]             | O
-            |            While it is at it, notifications          |
+            |              [This takes cpuhotplug.lock             |            [在关闭CPU前获取cpuhotplug.lock锁，
+  Common    |               before taking down the CPU             |             在结束时释放锁]
+   code     |               and releases it when done]             | O          运行到这里时，当显著的时间发生时，通过运行
+            |            While it is at it, notifications          |            所有注册的回调函数，通知被发送。
             |            are sent when notable events occur,       |
              ======>     by running all registered callbacks.      |
                                         |                          | O
                                         |                          |
                                         |                          |
                                         v                          |
-                            Note down these cpus in                | P
+                            Note down these cpus in                | P           记录下这些关闭的CPU
                                 frozen_cpus mask         ----------
                                         |
                                         v
-                           Disable regular cpu hotplug
+                           Disable regular cpu hotplug                          失能CPU热插拔
                         by setting cpu_hotplug_disabled=1
                                         |
                                         v
-                            Release cpu_add_remove_lock
+                            Release cpu_add_remove_lock                         释放锁cpu_add_remove_lock
                                         |
                                         v
-                       /* disable_nonboot_cpus() complete */
+                       /* disable_nonboot_cpus() complete */                    失能非引导CPU完成
                                         |
                                         v
-                                   Do suspend
+                                   Do suspend                                   挂起
 
 
 
 Resuming back is likewise, with the counterparts being (in the order of
 execution during resume):
-* enable_nonboot_cpus() which involves:
+逆顺序恢复：
+* enable_nonboot_cpus() which involves:           使能CPU
    |  Acquire cpu_add_remove_lock
    |  Reset cpu_hotplug_disabled to 0, thereby enabling regular cpu hotplug
    |  Call _cpu_up() [for all those cpus in the frozen_cpus mask, in a loop]
    |  Release cpu_add_remove_lock
    v
 
-* thaw tasks
-* send PM_POST_SUSPEND notifications
-* Release pm_mutex lock.
+* thaw tasks                                      解冻任务
+* send PM_POST_SUSPEND notifications              发送通知PM_POST_SUSPEND
+* Release pm_mutex lock.                          释放锁pm_mutex
 
 
 It is to be noted here that the pm_mutex lock is acquired at the very
 beginning, when we are just starting out to suspend, and then released only
 after the entire cycle is complete (i.e., suspend + resume).
-
+这里要注意的是，pm_mutex锁是在刚刚开始挂起时获取的，然后仅在整个周期完成后释放（即挂起+恢复）。
 
 
                           Regular CPU hotplug call path
                           -----------------------------
 
                                 Write 0 (or 1) to
-                       /sys/devices/system/cpu/cpu*/online
+                       /sys/devices/system/cpu/cpu*/online       写sysfs文件
                                     sysfs file
                                         |
                                         |
                                         v
-                                    cpu_down()
+                                    cpu_down()                   调用cpu_down()
                                         |
                                         v
-                           Acquire cpu_add_remove_lock
+                           Acquire cpu_add_remove_lock           获取锁cpu_add_remove_lock
                                         |
                                         v
-                          If cpu_hotplug_disabled is 1
+                          If cpu_hotplug_disabled is 1           如果cpu_hotplug_disabled为1，优雅的返回
                                 return gracefully
                                         |
                                         |
@@ -135,7 +142,7 @@ after the entire cycle is complete (i.e., suspend + resume).
                                         |
                                         |
                                         v
-                          Release cpu_add_remove_lock
+                          Release cpu_add_remove_lock            释放锁cpu_add_remove_lock
                                [That's it!, for
                               regular CPU hotplug]
 
@@ -149,7 +156,11 @@ argument. But during suspend, since the tasks are already frozen by the time
 the non-boot CPUs are offlined or onlined, the _cpu_*() functions are called
 with the 'tasks_frozen' argument set to 1.
 [See below for some known issues regarding this.]
-
+因此，从两个图（标记为“Common code”）的部分可以看出，常规CPU热插拔和挂起代码路径会在
+_cpu_down（）和_cpu_up（）函数相会。它们在传递给这些函数的参数上有所不同，因为在常规
+CPU热插拔期间，为'tasks_frozen'参数传递0。但是在挂起期间，由于非引导CPU脱机或上线时
+任务已经冻结，因此调用_cpu_*（）函数并将'tasks_frozen'参数设置为1。
+[见下文有关此问题的一些已知问题。]
 
 Important files and functions/entry points:
 ------------------------------------------
@@ -165,13 +176,15 @@ II. What are the issues involved in CPU hotplug?
 
 There are some interesting situations involving CPU hotplug and microcode
 update on the CPUs, as discussed below:
+有一些有趣的情况涉及CPU热插拔和CPU上的微码更新，如下所述：
 
 [Please bear in mind that the kernel requests the microcode images from
 userspace, using the request_firmware() function defined in
 drivers/base/firmware_class.c]
-
+[请记住，内核使用drivers/base/firmware_class.c中定义的request_firmware（）函数从用户空间请求微码镜像。
 
 a. When all the CPUs are identical:
+   当所有CPU都相同
 
    This is the most common situation and it is quite straightforward: we want
    to apply the same microcode revision to each of the CPUs.
@@ -180,9 +193,13 @@ a. When all the CPUs are identical:
    and thereby in applying the correct microcode revision to it.
    But note that the kernel does not maintain a common microcode image for the
    all CPUs, in order to handle case 'b' described below.
+   这是最常见的情况，它非常简单：我们希望对每个CPU应用相同的微码修订版。举一个x86的例子，
+   arch/x86/kernel/microcode_core.c中定义的collect_cpu_info（）函数有助于发现CPU的类型，
+   从而有助于对它应用正确的微码修订。但请注意，内核不会为所有CPU维护一个公共微码镜像，以便处理下面描述的情况'b'。
 
 
 b. When some of the CPUs are different than the rest:
+   当一些CPU与别的不同时：
 
    In this case since we probably need to apply different microcode revisions
    to different CPUs, the kernel maintains a copy of the correct microcode
