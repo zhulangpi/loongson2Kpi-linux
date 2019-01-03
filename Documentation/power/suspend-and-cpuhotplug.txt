@@ -172,6 +172,7 @@ kernel/cpu.c: cpu_[up|down](), _cpu_[up|down](), [disable|enable]_nonboot_cpus()
 
 
 II. What are the issues involved in CPU hotplug?
+     CPU热插拔涉及哪些问题？
     -------------------------------------------
 
 There are some interesting situations involving CPU hotplug and microcode
@@ -205,7 +206,8 @@ b. When some of the CPUs are different than the rest:
    to different CPUs, the kernel maintains a copy of the correct microcode
    image for each CPU (after appropriate CPU type/model discovery using
    functions such as collect_cpu_info()).
-
+   在这种情况下，由于我们可能需要对不同的CPU应用不同的微码修订，内核会为每个CPU维护正确
+   的微代码镜像的副本（在使用诸如collect_cpu_info（）之类的函数进行适当的CPU类型/模型发现之后）。
 
 c. When a CPU is physically hot-unplugged and a new (and possibly different
    type of) CPU is hot-plugged into the system:
