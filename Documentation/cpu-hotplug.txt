@@ -27,27 +27,40 @@ partitioning support, where compute resources of a single CPU could be made
 available to virtual machine environments. There are couple OEMS that
 support NUMA hardware which are hot pluggable as well, where physical
 node insertion and removal require support for CPU hotplug.
+系统体系结构上的现代高级特性使处理器具备了错误报告与错误更正的能力。
+CPU体系结构支持分区，这使得单个CPU的计算资源也能够满足虚拟机的需要。
+一些OEM已经支持了NUMA硬件的热插拔，物理节点的插入与移除需要处理器热插拔技术的支持。
 
 Such advances require CPUs available to a kernel to be removed either for
 provisioning reasons, or for RAS purposes to keep an offending CPU off
 system execution path. Hence the need for CPU hotplug support in the
 Linux kernel.
+这种高级特性需要内核在必要时能移除正在使用的CPU.[provisioning reasons?]
+比如，为了RAS的需要，必须将一个执行恶意代码的CPU保持在系统执行路径之外。
+因此，在Linux内核中需要支持CPU热插拔技术。
 
 A more novel use of CPU-hotplug support is its use today in suspend
 resume support for SMP. Dual-core and HT support makes even
 a laptop run SMP kernels which didn't support these methods. SMP support
 for suspend/resume is a work in progress.
+一个更具新意的CPU热插拔的应用是对SMP系统的挂起/恢复的支持。
+多核或HT技术使得在一台笔记本上也能运行SMP内核，但是目前的支持挂起/恢复的SMP技术还在研发中。
 
 General Stuff about CPU Hotplug
+CPU 热插拔的一般概况
 --------------------------------
 
 Command Line Switches
+命令行设置
 ---------------------
 maxcpus=n    Restrict boot time cpus to n. Say if you have 4 cpus, using
              maxcpus=2 will only boot 2. You can choose to bring the
              other cpus later online, read FAQ's for more info.
+             在系统启动的CPU个数限制为n。如果你有4个CPU，但maxcpus=2，就只能启动2个CPU。
+             但随后可以将更多的CPU加入到系统中，更多的信息可以在FAQ中获得。
 
 additional_cpus=n (*)	Use this to limit hotpluggable cpus. This option sets
+                        这个选项可以限制可热插拔的CPU的个数。通过这个选项，我们可以计算出系统能够支持的CPU的最大数目：
   			cpu_possible_mask = cpu_present_mask + additional_cpus
 
 cede_offline={"off","on"}  Use this option to disable/enable putting offlined
@@ -55,8 +68,11 @@ cede_offline={"off","on"}  Use this option to disable/enable putting offlined
 			    supported pseries platforms.
 			    If nothing is specified,
 			    cede_offline is set to "on".
+                           在扩展的pseries平台上，此选项可以禁用/使能将一个离线处理器设为扩展的H_CEDE状态。
+                           如果没有特别说明，cede_offline默认被设为”on”。
 
 (*) Option valid only for following architectures
+    加（*）的选项仅适用于以下平台：
 - ia64
 
 ia64 uses the number of disabled local apics in ACPI tables MADT to
@@ -66,16 +82,23 @@ on the apicid values in those tables for disabled apics. In the event
 BIOS doesn't mark such hot-pluggable cpus as disabled entries, one could
 use this parameter "additional_cpus=x" to represent those cpus in the
 cpu_possible_mask.
+Ia64使用ACPI的MADT表中被禁用的局部apic的数量来确定潜在的可热插拔CPU的数量。
+在实现中，仅应使用此方法获取CPU数目，绝对不能依赖于上述表格中描述被禁用APIC数目的apicid的值。
+不能在BIOS中将这些可热插拔的CPU设为不可用的设备。参数"additional_cpus=x"可以用来描述cpu_possible_map中可热插拔的CPU。
 
 possible_cpus=n		[s390,x86_64] use this to set hotpluggable cpus.
 			This option sets possible_cpus bits in
 			cpu_possible_mask. Thus keeping the numbers of bits set
 			constant even if the machine gets rebooted.
+                        [s390, x86_64]使用该选项来设置可热插拔的CPU。该选项设置了cpu_possible_map中的possible_cpu对应的位。
+                        因此，即使系统重启，也应保证此位图中的位的数量为常数。
 
 CPU maps and such
+CPU位图及相关的一些问题
 -----------------
 [More on cpumaps and primitive to manipulate, please check
 include/linux/cpumask.h that has more descriptive text.]
+[更多关于cpumaps及操作原语的信息，请关注include/linux/cpumask.h，该文件中包含了更多的信息。]
 
 cpu_possible_mask: Bitmap of possible CPUs that can ever be available in the
 system. This is used to allocate some boot time memory for per_cpu variables
@@ -84,12 +107,21 @@ Once set during boot time discovery phase, the map is static, i.e no bits
 are added or removed anytime.  Trimming it accurately for your system needs
 upfront can save some boot time memory. See below for how we use heuristics
 in x86_64 case to keep this under check.
+                 系统中可用CPU的位图（CPU不一定存在于系统中，也包括待插入的CPU）。
+在为每CPU变量分配启动时内存时，需要使用此位图，这些变量所占的内存在插入或溢出CPU时不会
+进行相应的扩展和释放。一旦在启动时的探测阶段[discovery phase]完成了对此位图的设置，
+它在整个系统执行期间都是静态的，也就是说在任何时候都无需设置或清除任何一位。如果
+此位图严格的符合系统的具体情况，便能节省一些启动时内存[boot time memory]。
+下面我们会详细的解说x86_64平台是如何检查此变量的。
 
 cpu_online_mask: Bitmap of all CPUs currently online. Its set in __cpu_up()
 after a cpu is available for kernel scheduling and ready to receive
 interrupts from devices. Its cleared when a cpu is brought down using
 __cpu_disable(), before which all OS services including interrupts are
 migrated to another target CPU.
+                 当前在用CPU的位图。__cpu_up()函数在某个CPU已经可以用于内核调度
+并能够接收设备中断时，可以设置此位图中相应的位。当使用__cpu_disable()函数禁用某个CPU时，
+在包括中断在内的所有的系统服务都被迁移到其它的CPU之前，需要清除此位图中相应的位。
 
 cpu_present_mask: Bitmap of CPUs currently present in the system. Not all
 of them may be online. When physical hotplug is processed by the relevant
@@ -97,12 +129,18 @@ subsystem (e.g ACPI) can change and new bit either be added or removed
 from the map depending on the event is hot-add/hot-remove. There are currently
 no locking rules as of now. Typical usage is to init topology during boot,
 at which time hotplug is disabled.
+                  当前存在于系统中的CPU的位图。它们不一定在用[online]。当物理的热插拔操作
+被相关的子系统（如，ACPI）处理之后，需要根据热插拔的情况对改位图进行相应的修改。目前还没有加锁规则。
+该位图典型的应用是在启动时初始化拓扑结构，而此时热插拔是禁用的。
 
 You really dont need to manipulate any of the system cpu maps. They should
 be read-only for most use. When setting up per-cpu resources almost always use
 cpu_possible_mask/for_each_possible_cpu() to iterate.
+你真的无需操作系统中的任何CPU位图。在大多数情况下，它们都应是只读的。在设置一个每cpu变量时，
+几乎总是使用cpu_possible_map/for_each_possible_cpu()来进行循环。
 
 Never use anything other than cpumask_t to represent bitmap of CPUs.
+只能使用cpumask_t来描述一个CPU位图。
 
 	#include <linux/cpumask.h>
 
@@ -121,42 +159,52 @@ preempt_disable() and preempt_enable() for those sections.
 Just remember the critical section cannot call any
 function that can sleep or schedule this process away. The preempt_disable()
 will work as long as stop_machine_run() is used to take a cpu down.
+上面的函数可以约束[inhibit]CPU的热插拔操作。这两个函数实际上是在操作cpu_hotplug.refcount。
+当cpu_hotplug.refcount非0时，不能改变cpu_online_map。如果仅仅需要避免CPU被禁用，也可以在
+临界区前后使用preempt_disable()/preempt_enable()。但是需要注意的是，临界区中不能调用任何能够
+引起睡眠或将此进程调度走的函数。只要用来关闭处理器的函数stop_machine_run()被调用，preempt_disable()就会执行
+
 
 CPU Hotplug - Frequently Asked Questions.
 
 Q: How to enable my kernel to support CPU hotplug?
+   如何使我的内核能够支持处理器热插拔？
 A: When doing make defconfig, Enable CPU hotplug support
+   在make defconfig时使能CPU热插拔的支持：
 
    "Processor type and Features" -> Support for Hotpluggable CPUs
 
 Make sure that you have CONFIG_HOTPLUG, and CONFIG_SMP turned on as well.
-
+另外还需打开CONFIG_HOTPLUG和CONFIG_SMP选项。
 You would need to enable CONFIG_HOTPLUG_CPU for SMP suspend/resume support
 as well.
+如果需要支持SMP的挂起/恢复，也需要打开CONFIG_HOTPLUG_CPU选项。
 
 Q: What architectures support CPU hotplug?
+   哪些体系结构支持CPU热插拔？
 A: As of 2.6.14, the following architectures support CPU hotplug.
-
+   在2.6.14内核中，如下的体系结构都支持CPU热插拔。
 i386 (Intel), ppc, ppc64, parisc, s390, ia64 and x86_64
 
 Q: How to test if hotplug is supported on the newly built kernel?
+   如何测试一个新编译的内核是否支持热插拔？
 A: You should now notice an entry in sysfs.
-
+   请注意/sys中的一个文件。
 Check if sysfs is mounted, using the "mount" command. You should notice
 an entry as shown below in the output.
-
+首先使用mount命令确定sysfs是否已挂载。请注意输出中是否有如下的语句。
 	....
 	none on /sys type sysfs (rw)
 	....
 
 If this is not mounted, do the following.
-
+这表明/sys尚未挂载，请执行如下操作。
 	 #mkdir /sysfs
 	#mount -t sysfs sys /sys
 
 Now you should see entries for all present cpu, the following is an example
 in a 8-way system.
-
+现在可以看到与所有系统中已存在的CPU对应的文件夹，下面是一个8路系统中的例子。
 	#pwd
 	#/sys/devices/system/cpu
 	#ls -l
@@ -174,41 +222,57 @@ in a 8-way system.
 
 Under each directory you would find an "online" file which is the control
 file to logically online/offline a processor.
+在每个文件夹下，都有名为“online”的文件，这是一个控制文件[control file. I like the word.]，可以用来使能/禁用[online/offline]一个处理器。
 
 Q: Does hot-add/hot-remove refer to physical add/remove of cpus?
+   热插/热拔是否对应物理上对处理器的添加/移除？
 A: The usage of hot-add/remove may not be very consistently used in the code.
 CONFIG_HOTPLUG_CPU enables logical online/offline capability in the kernel.
 To support physical addition/removal, one would need some BIOS hooks and
 the platform should have something like an attention button in PCI hotplug.
 CONFIG_ACPI_HOTPLUG_CPU enables ACPI support for physical add/remove of CPUs.
+   这里对热插/热拔的使用并不是与其字面上的意义完全一致。CONFIG_HOTPLUG_CPU使得内核能够
+进行逻辑上的使能与禁用。为了支持物理上的添加/移除，需要一些BIOS回调函数，并且还需要平台
+具有一些类似于PCI热插拔按钮之类的机制。CONFIG_ACPI_HOTPLUG_CPU使得ACPI能够支持CPU在物理上的添加/移除。
+
 
 Q: How do i logically offline a CPU?
+   如何在逻辑上禁用一个CPU?
 A: Do the following.
-
+    执行如下操作。
 	#echo 0 > /sys/devices/system/cpu/cpuX/online
 
 Once the logical offline is successful, check
-
+ 如果逻辑上的禁用成功，检查
+ 
 	#cat /proc/interrupts
 
 You should now not see the CPU that you removed. Also online file will report
 the state as 0 when a cpu if offline and 1 when its online.
+在此文件中，将看不到被移除的CPU对应的列了。当CPU被移除后，它的online文件为0，否则为1.
 
 	#To display the current cpu state.
 	#cat /sys/devices/system/cpu/cpuX/online
 
 Q: Why can't i remove CPU0 on some systems?
+   为什么在一些系统中无法移除CPU0？
 A: Some architectures may have some special dependency on a certain CPU.
+   一些体系结构特别依赖于某个特殊的CPU。
 
 For e.g in IA64 platforms we have ability to sent platform interrupts to the
 OS. a.k.a Corrected Platform Error Interrupts (CPEI). In current ACPI
 specifications, we didn't have a way to change the target CPU. Hence if the
 current ACPI version doesn't support such re-direction, we disable that CPU
 by making it not-removable.
+比如在IA64平台上，我们能够将平台中断发送给OS。也就是平台错误更正中断[Corrected Platform Error Interrupts (CPEI)]。
+如果ACPI配置正确，我们没有办发改变目标CPU。因此，如果当前的ACPI版本不支持这样的重定向，
+这样的CPU就是不可移除的。[其实就是说某些中断只能发送给特定的CPU。]
 
 In such cases you will also notice that the online file is missing under cpu0.
+这种情况下，你会发现cpu0没有online文件。
 
 Q: Is CPU0 removable on X86?
+
 A: Yes. If kernel is compiled with CONFIG_BOOTPARAM_HOTPLUG_CPU0=y, CPU0 is
 removable by default. Otherwise, CPU0 is also removable by kernel option
 cpu0_hotplug.
@@ -233,40 +297,58 @@ either by CONFIG_BOOTPARAM_HOTPLUG_CPU0 or by kernel parameter cpu0_hotplug.
 --Fenghua Yu <fenghua.yu@intel.com>
 
 Q: How do i find out if a particular CPU is not removable?
+   如果一个特殊的CPU不能被移除，我如何找出它？
 A: Depending on the implementation, some architectures may show this by the
 absence of the "online" file. This is done if it can be determined ahead of
 time that this CPU cannot be removed.
+   这个依赖于具体的实现方法，在一些体系结构上，我们找到这些CPU的“online”文件。
+如果我们能够提前获知此处理不能被移除，这种方法不错。
 
 In some situations, this can be a run time check, i.e if you try to remove the
 last CPU, this will not be permitted. You can find such failures by
 investigating the return value of the "echo" command.
+在某些情况下，可以在运行时进行检查，即，如果你希望移除最后一个CPU，这是不允许的。
+此时，“echo”命令会给出一个错误提示。
 
 Q: What happens when a CPU is being logically offlined?
+   当一个CPU在逻辑上被移除时，会发生什么？
 A: The following happen, listed in no particular order :-)
+   将会发生下面的事情，排列是无序的。
 
 - A notification is sent to in-kernel registered modules by sending an event
   CPU_DOWN_PREPARE or CPU_DOWN_PREPARE_FROZEN, depending on whether or not the
   CPU is being offlined while tasks are frozen due to a suspend operation in
   progress
+  内核中的模块会接收到一个通知[notification]，对应的事件是CPU_DOWN_PREPARE或者CPU_DOWN_PREPARE_FROZEN，
+  具体是哪个事件则依赖于CPU被移除时，是否有任务被“冷冻”，任务被冷冻的原因是正在执行挂起操作。
 - All processes are migrated away from this outgoing CPU to new CPUs.
   The new CPU is chosen from each process' current cpuset, which may be
   a subset of all online CPUs.
+  此CPU上的所有进程都被迁移到新的CPU上。新CPU通过每个进程的当前处理器设置（cpuset）进行选择，这些设置可能是所有在用CPU的子集。
 - All interrupts targeted to this CPU is migrated to a new CPU
+  所有定向到此CPU上的中断都被迁移到新的CPU上。
 - timers/bottom half/task lets are also migrated to a new CPU
+  定时器/BH/task lets也将被迁移到新的CPU上。
 - Once all services are migrated, kernel calls an arch specific routine
   __cpu_disable() to perform arch specific cleanup.
+  一旦所有的服务都被迁移了，内核便调用一个体系结构相关[arch specific]的例程__cpu_disable()来执行体系结构相关的清理工作。
 - Once this is successful, an event for successful cleanup is sent by an event
   CPU_DEAD (or CPU_DEAD_FROZEN if tasks are frozen due to a suspend while the
   CPU is being offlined).
+  如果上面的工作也完成了，一个代表清理成功的事件将被发送，此事件为CPU_DEAD。
+  （如果存在冰冻任务，相应的事件则为CPU_DEAD_FROZEN。也就是说在移除CPU时，系统正在执行挂起操作。）
 
   "It is expected that each service cleans up when the CPU_DOWN_PREPARE
   notifier is called, when CPU_DEAD is called its expected there is nothing
   running on behalf of this CPU that was offlined"
+  当CPU_DOWN_PREPARE通知链被调用时，所有服务都应该被清除。当CPU_DEAD被调用时，
+  不应在有任何东西运行于被移除的CPU上。
 
 Q: If i have some kernel code that needs to be aware of CPU arrival and
    departure, how to i arrange for proper notification?
+   如果我的内核代码需要能够感知CPU的到达和离开，我如何正确地安排通知链？
 A: This is what you would need in your kernel code to receive notifications.
-
+   下面的代码给出了你的内核代码在收到一个通知时应做的工作。
 	#include <linux/cpu.h>
 	static int __cpuinit foobar_cpu_callback(struct notifier_block *nfb,
 					    unsigned long action, void *hcpu)
@@ -293,26 +375,35 @@ A: This is what you would need in your kernel code to receive notifications.
 
 You need to call register_cpu_notifier() from your init function.
 Init functions could be of two types:
+你需要在初始化函数中调用函数register_cpu_notifier()。初始化函数可能具有2种类型：
 1. early init (init function called when only the boot processor is online).
+   仅在启动处理器在用时才调用的初始化函数。
 2. late init (init function called _after_ all the CPUs are online).
-
+   在所有的处理器都在用后才调用的初始化函数。
+   
 For the first case, you should add the following to your init function
+对第一种情况，你应该在初始化函数中加入下面的代码。
 
 	register_cpu_notifier(&foobar_cpu_notifier);
 
 For the second case, you should add the following to your init function
+对第二种情况，你应该将下面的代码加在初始化函数中。
 
 	register_hotcpu_notifier(&foobar_cpu_notifier);
 
 You can fail PREPARE notifiers if something doesn't work to prepare resources.
 This will stop the activity and send a following CANCELED event back.
+如果在准备资源时出了任何错误，你的PREPARE通知链都将出错。这将终止活动，并随后发送一个CANCELED事件。
 
 CPU_DEAD should not be failed, its just a goodness indication, but bad
 things will happen if a notifier in path sent a BAD notify code.
+CPU_DEAD不应该失败，它仅仅是在通知一个好消息。当某个通知链在执行时发出了一个BAD通知时，则意味着可能会发生坏事情。
 
 Q: I don't see my action being called for all CPUs already up and running?
+   我的代码被调用的次数貌似并不等于所有被使能或正在运行的CPU的个数？
 A: Yes, CPU notifiers are called only when new CPUs are on-lined or offlined.
    If you need to perform some action for each cpu already in the system, then
+    是的，CPU通知链仅在新的CPU被使能或禁用时才会被调用。如果你需要为系统中的每个CPU都执行一段程序，请参考下面的代码。
 
 	for_each_online_cpu(i) {
 		foobar_cpu_callback(&foobar_cpu_notifier, CPU_UP_PREPARE, i);
@@ -321,15 +412,21 @@ A: Yes, CPU notifiers are called only when new CPUs are on-lined or offlined.
 
 Q: If i would like to develop cpu hotplug support for a new architecture,
    what do i need at a minimum?
+   如果我想为一种新的体系结构开发CPU热插拔的支持，如何做才能使工作量最小？
 A: The following are what is required for CPU hotplug infrastructure to work
    correctly.
-
+   要使CPU热插拔的基础框架能够正确工作，需要做以下工作。
+   
     - Make sure you have an entry in Kconfig to enable CONFIG_HOTPLUG_CPU
+     确定在Kconfig中添加了使能CONFIG_HOTPLUG_CPU的选项。
     - __cpu_up()        - Arch interface to bring up a CPU
+                          使能一个CPU时，面向体系结构的接口。
     - __cpu_disable()   - Arch interface to shutdown a CPU, no more interrupts
                           can be handled by the kernel after the routine
                           returns. Including local APIC timers etc are
                           shutdown.
+                          关闭一个CPU时，面向体系结构的接口，在此函数返回时，不在有中断会被内核处理。
+                          局部APIC定时器等设备也被关掉了。
      - __cpu_die()      - This actually supposed to ensure death of the CPU.
                           Actually look at some example code in other arch
                           that implement CPU hotplug. The processor is taken
@@ -337,13 +434,21 @@ A: The following are what is required for CPU hotplug infrastructure to work
                           architecture. __cpu_die() typically waits for some
                           per_cpu state to be set, to ensure the processor
                           dead routine is called to be sure positively.
+                          此函数用来确认某个CPU是否真的被关掉了。最好还是去仔细看一下为其它体系结构而编写的热插拔代码。
+                          尤其是在这种体系结构上，如何将CPU中idle()循环中关掉。__cpu_die()通常是在等待某些每CPU状态被
+                          设置，以确保处理器关闭例程被正确地调用。
 
 Q: I need to ensure that a particular cpu is not removed when there is some
    work specific to this cpu is in progress.
+    当一些与某个特殊的CPU相关的工作正在执行时，我需要确保这个特殊的CPU不会被移除。
+    
 A: There are two ways.  If your code can be run in interrupt context, use
    smp_call_function_single(), otherwise use work_on_cpu().  Note that
    work_on_cpu() is slow, and can fail due to out of memory:
-
+   有2种方式，可以使一个CPU不会被移除。如果你的代码可以在中断上下文中执行，那么就使用
+   函数smp_call_function_single()，否则就使用work_on_cpu()。需要注意的是，work_on_cpu()
+   执行的很慢，而且可能由于内存不够而失败。
+   
 	int my_func_on_cpu(int cpu)
 	{
 		int err;
@@ -362,26 +467,36 @@ A: There are two ways.  If your code can be run in interrupt context, use
 	}
 
 Q: How do we determine how many CPUs are available for hotplug.
+   我们如何确定有多少个CPU可以热插拔？
 A: There is no clear spec defined way from ACPI that can give us that
    information today. Based on some input from Natalie of Unisys,
    that the ACPI MADT (Multiple APIC Description Tables) marks those possible
    CPUs in a system with disabled status.
-
+   至今，ACPI也没能明确地给出解决方法。Unisys的Natalie指出，ACPI的MADT
+   (Multiple APIC Description Tables)可以将系统中可用的CPU标记为禁用状态。
+   
    Andi implemented some simple heuristics that count the number of disabled
    CPUs in MADT as hotpluggable CPUS.  In the case there are no disabled CPUS
    we assume 1/2 the number of CPUs currently present can be hotplugged.
+   Andi实现了一些简单的启发式方法，可以统计出MADT表中被禁用的CPU的个数，这些CPU就是
+   可以用于热插拔的CPU。在没有被禁用的CPU的情况下，我们假设当前可用CPU的一半可以用于热插拔。
 
    Caveat: Today's ACPI MADT can only provide 256 entries since the apicid field
    in MADT is only 8 bits.
+   忠告：当前的ACPI MADT仅能提供256个表项，因为MADT中的apicid字段仅有8位。
 
 User Space Notification
+用户空间的通知链
 
 Hotplug support for devices is common in Linux today. Its being used today to
 support automatic configuration of network, usb and pci devices. A hotplug
 event can be used to invoke an agent script to perform the configuration task.
+在而今的Linux中，对设备热插拔的支持已经相当普通了。我们可以利用设备热插拔机制来自动配置网络，
+USB以及PCI设备。一个热插拔事件可以唤醒一个代理脚本，用以执行配置任务。
 
 You can add /etc/hotplug/cpu.agent to handle hotplug notification user space
 scripts.
+你可以通过创建文件/etc/hotplug/cpu.agent在用户空间处理热插拔事件。
 
 	#!/bin/bash
 	# $Id: cpu.agent
