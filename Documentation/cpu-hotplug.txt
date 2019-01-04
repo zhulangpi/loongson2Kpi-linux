@@ -1,4 +1,5 @@
 		CPU hotplug Support in Linux(tm) Kernel
+                译文链接--https://blog.csdn.net/arethe/article/details/6074088
 
 		Maintainers:
 		CPU Hotplug Core:
