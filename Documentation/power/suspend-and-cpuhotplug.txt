@@ -211,17 +211,22 @@ b. When some of the CPUs are different than the rest:
 
 c. When a CPU is physically hot-unplugged and a new (and possibly different
    type of) CPU is hot-plugged into the system:
+   当CPU物理热插拔并且新的（可能是不同类型的）CPU热插入系统时：
 
    In the current design of the kernel, whenever a CPU is taken offline during
    a regular CPU hotplug operation, upon receiving the CPU_DEAD notification
    (which is sent by the CPU hotplug code), the microcode update driver's
    callback for that event reacts by freeing the kernel's copy of the
    microcode image for that CPU.
+   在内核的当前设计中，每当CPU在常规CPU热插拔操作期间脱机时，在接收到CPU_DEAD通知（由CPU热插拔代码发送）时，
+   微码更新驱动程序对该事件的回调通过释放内核对该CPU的微码镜像的副本来做出反应。 
 
    Hence, when a new CPU is brought online, since the kernel finds that it
    doesn't have the microcode image, it does the CPU type/model discovery
    afresh and then requests the userspace for the appropriate microcode image
    for that CPU, which is subsequently applied.
+   因此，当新CPU联机时，一旦内核发现它没有微码镜像，它会重新进行CPU类型/模型发现，
+   然后向用户空间请求该CPU的相应微码图像，随后应用。
 
    For example, in x86, the mc_cpu_callback() function (which is the microcode
    update driver's callback registered for CPU hotplug events) calls
@@ -230,9 +235,14 @@ c. When a CPU is physically hot-unplugged and a new (and possibly different
    have a valid microcode image. This ensures that the CPU type/model
    discovery is performed and the right microcode is applied to the CPU after
    getting it from userspace.
+   例如，在x86中，mc_cpu_callback（）函数（这是为CPU热插拔事件注册的微码更新驱动程序的回调）
+   调用microcode_update_cpu（），在这种情况下会调用microcode_init_cpu（），而不是在发现
+   内核没有有效的微码镜像时调用microcode_resume_cpu（）。这可确保执行CPU类型/模型发现，
+   并在从用户空间获取后将正确的微码应用于CPU。
 
 
 d. Handling microcode update during suspend/hibernate:
+   在挂起/休眠期间处理微代码更新
 
    Strictly speaking, during a CPU hotplug operation which does not involve
    physically removing or inserting CPUs, the CPUs are not actually powered
@@ -240,15 +250,21 @@ d. Handling microcode update during suspend/hibernate:
    Hence, in such a case, it is not really necessary to re-apply microcode
    when the CPUs are brought back online, since they wouldn't have lost the
    image during the CPU offline operation.
+   严格地说，在不涉及物理移除或插入CPU的CPU热插拔操作期间，CPU在CPU脱机期间实际上没有断电。
+   它们只是被置于最低的C状态。因此，在这种情况下，当CPU重新联机时，实际上不需要重新应用微代码，
+   因为它们在CPU离线操作期间不会丢失镜像。
 
    This is the usual scenario encountered during a resume after a suspend.
    However, in the case of hibernation, since all the CPUs are completely
    powered off, during restore it becomes necessary to apply the microcode
    images to all the CPUs.
+   这时挂起后恢复期间常遇到的情况。但是，在休眠的情况下，由于所有CPU都完全断电，
+   因此在恢复期间，必须将微码镜像应用于所有CPU。
 
    [Note that we don't expect someone to physically pull out nodes and insert
    nodes with a different type of CPUs in-between a suspend-resume or a
    hibernate/restore cycle.]
+   [请注意，我们不希望有人物理地拔出节点并在暂停-恢复或休眠/恢复周期之间插入具有不同类型CPU的节点。
 
    In the current design of the kernel however, during a CPU offline operation
    as part of the suspend/hibernate cycle (the CPU_DEAD_FROZEN notification),
@@ -260,10 +276,15 @@ d. Handling microcode update during suspend/hibernate:
    right for the CPUs or not (due to the above assumption that physical CPU
    hotplug will not be done in-between suspend/resume or hibernate/restore
    cycles).
+   然而，在当前的内核设计中，作为暂停/休眠循环（CPU_DEAD_FROZEN通知）的一部分，在CPU脱机操作期间，
+   内核中的微代码映像的现有副本未被释放。在CPU在线操作期间（恢复/恢复期间），由于内核发现它已经拥有
+   所有CPU的微码镜像副本，它只是将它们应用到CPU，避免重新发现CPU类型/型号和验证微代码修订是否适合CPU
+   （由于上述假设物理CPU不会在暂停/恢复或休眠/恢复周期之间热插拔）。
 
 
 III. Are there any known problems when regular CPU hotplug and suspend race
      with each other?
+   常规CPU热插拔和挂起竞争时是否存在任何已知问题？
 
 Yes, they are listed below:
 
@@ -275,10 +296,15 @@ Yes, they are listed below:
    sent during the cpu online/offline events (eg, CPU_ONLINE notification
    instead of CPU_ONLINE_FROZEN) which in turn will lead to execution of
    inappropriate code by the callbacks registered for such CPU hotplug events.
+   当调用常规CPU热插拔时，传递给_cpu_down（）和_cpu_up（）函数的'tasks_frozen'参数是永远是0。
+   这可能无法反映系统当前的真实状态，因为任务可能已被冻结，例如正在进行的挂起操作。因此，
+   它将导致在cpu在线/离线事件期间发送错误通知（例如，CPU_ONLINE通知而不是CPU_ONLINE_FROZEN），
+   这反过来将导致为这些CPU热插拔事件注册的回调函数执行不适当的代码。
 
 2. If a regular CPU hotplug stress test happens to race with the freezer due
    to a suspend operation in progress at the same time, then we could hit the
    situation described below:
+   如果由于同时进行挂起操作而导致常规CPU热插拔压力测试与冷冻器竞争，那么我们可能会遇到下述情况：
 
     * A regular cpu online operation continues its journey from userspace
       into the kernel, since the freezing has not yet begun.
@@ -289,6 +315,12 @@ Yes, they are listed below:
     * Now the freezer continues and tries to freeze the remaining tasks. But
       due to this wait mentioned above, the freezer won't be able to freeze
       the cpu online hotplug task and hence freezing of tasks fails.
+    *由于冻结尚未开始，常规cpu online操作将继续从用户空间进入内核。
+    *然后冻结器开始工作并冻结用户空间。
+    *如果cpu online还没有完成微码更新的东西，它现在将开始在TASK_UNINTERRUPTIBLE状态下等待冻结用户空间，以获得微码镜像。
+    *现在冷冻器继续并尝试冻结剩余的任务。但是由于上面提到的这种等待操作，冰箱将无法冻结cpu online hotplug任务，因此冻结任务失败。
+
 
    As a result of this task freezing failure, the suspend operation gets
    aborted.
+   由于该任务冻结失败，挂起操作中断
