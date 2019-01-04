@@ -1,8 +1,10 @@
 Testing suspend and resume support in device drivers
+测试设备驱动程序的挂起恢复支持
 	(C) 2007 Rafael J. Wysocki <rjw@sisk.pl>, GPL
 
 1. Preparing the test system
-
+   准备测试系统
+   
 Unfortunately, to effectively test the support for the system-wide suspend and
 resume transitions in a driver, it is necessary to suspend and resume a fully
 functional system with this driver loaded.  Moreover, that should be done
@@ -10,37 +12,51 @@ several times, preferably several times in a row, and separately for hibernation
 (aka suspend to disk or STD) and suspend to RAM (STR), because each of these
 cases involves slightly different operations and different interactions with
 the machine's BIOS.
+遗憾的是，为了有效测试驱动程序对系统级挂起和恢复的支持，有必要在加载此驱动程序的情况下挂起并
+恢复功能完备的整个系统。此外，应该多次进行，最好连续几次，并分别进行休眠（也就是暂停到磁盘或STD）和
+暂停到RAM（STR），因为这些情况中涉及的和机器BIOS的操作和交互都有细微不同。
 
 Of course, for this purpose the test system has to be known to suspend and
 resume without the driver being tested.  Thus, if possible, you should first
 resolve all suspend/resume-related problems in the test system before you start
 testing the new driver.  Please see Documentation/power/basic-pm-debugging.txt
 for more information about the debugging of suspend/resume functionality.
+当然，基于此目的，必须知道测试系统在未加载待测驱动情况下的挂起和恢复。因此，如果可能，
+在开始测试新驱动程序之前，应首先解决测试系统中所有与挂起/恢复相关的问题。
+有关调试挂起/恢复功能的更多信息，请参阅Documentation/power/basic-pm-debugging.txt。
 
 2. Testing the driver
 
 Once you have resolved the suspend/resume-related problems with your test system
 without the new driver, you are ready to test it:
+一旦你可以在没有新驱动的测试系统下挂起/恢复，你就可以准备测试新驱动了：
 
 a) Build the driver as a module, load it and try the test modes of hibernation
    (see: Documentation/power/basic-pm-debugging.txt, 1).
+   将驱动编译为模块，加载它并尝试休眠测试
 
 b) Load the driver and attempt to hibernate in the "reboot", "shutdown" and
    "platform" modes (see: Documentation/power/basic-pm-debugging.txt, 1).
+   加载驱动并尝试在"reboot", "shutdown" and "platform"模式下休眠
 
 c) Compile the driver directly into the kernel and try the test modes of
    hibernation.
+   直接编译驱动到内核里并尝试休眠测试
 
 d) Attempt to hibernate with the driver compiled directly into the kernel
    in the "reboot", "shutdown" and "platform" modes.
+   尝试"reboot", "shutdown" and "platform"模式下休眠完全编译进内核的驱动
 
 e) Try the test modes of suspend (see: Documentation/power/basic-pm-debugging.txt,
    2).  [As far as the STR tests are concerned, it should not matter whether or
    not the driver is built as a module.]
+   尝试挂起测试 [就STR测试而言，驱动程序是否构建为模块并不重要。]
 
 f) Attempt to suspend to RAM using the s2ram tool with the driver loaded
    (see: Documentation/power/basic-pm-debugging.txt, 2).
+   尝试在驱动加载情况下用s2ram工具进行STR测试
 
 Each of the above tests should be repeated several times and the STD tests
 should be mixed with the STR tests.  If any of them fails, the driver cannot be
 regarded as suspend/resume-safe.
+以上测试都应该被重复几次并且STD测试和STR测试应该混合。如果有失败发送，驱动就被能被认为是挂起/恢复安全的。
