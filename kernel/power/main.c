@@ -48,6 +48,9 @@ int pm_notifier_call_chain(unsigned long val)
 /* If set, devices may be suspended and resumed asynchronously. */
 int pm_async_enabled = 1;
 
+/* 以下定义了sysfs attribute的show和store方法，在读写这些文件时会调用该方法。
+   宏power_attr()定义了struct kobj_attribute类型的变量，同时关联了这些方法 */
+
 static ssize_t pm_async_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
 {
@@ -223,6 +226,9 @@ static const struct file_operations suspend_stats_operations = {
 	.release        = single_release,
 };
 
+/* 在/sys/kernel/debug(debugfs)目录下创建了suspend_stats文件，文件被关联了
+   suspend_stats_operations操作集 */
+
 static int __init pm_debugfs_init(void)
 {
 	debugfs_create_file("suspend_stats", S_IFREG | S_IRUGO,
@@ -262,7 +268,7 @@ static ssize_t pm_print_times_store(struct kobject *kobj,
 	if (val > 1)
 		return -EINVAL;
 
-	pm_print_times_enabled = !!val;
+	pm_print_times_enabled = !!val;		/* TODO:将变量val转换为bool类型？  */
 	return n;
 }
 
