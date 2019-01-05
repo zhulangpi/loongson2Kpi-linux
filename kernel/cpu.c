@@ -63,6 +63,7 @@ static struct {
 	.refcount = 0,
 };
 
+/* 增加当前CPU的进程引用计数？ */
 void get_online_cpus(void)
 {
 	might_sleep();
@@ -94,24 +95,33 @@ EXPORT_SYMBOL_GPL(put_online_cpus);
 /*
  * This ensures that the hotplug operation can begin only when the
  * refcount goes to zero.
+ * 这确保CPU热插拔操作只在引用计数为0时才被允许
  *
  * Note that during a cpu-hotplug operation, the new readers, if any,
  * will be blocked by the cpu_hotplug.lock
+ * 注意在CPU热插拔期间，任何新的“读者”都会被cpu_hotplug.lock锁阻塞
  *
  * Since cpu_hotplug_begin() is always called after invoking
  * cpu_maps_update_begin(), we can be sure that only one writer is active.
+ * 因为总是先调用cpu_maps_update_begin()再调用cpu_hotplug_begin()，我们可以
+ * 确定只有一个“写者”是活跃的。
  *
  * Note that theoretically, there is a possibility of a livelock:
+ * 注意，理论上只有一种 活锁：
  * - Refcount goes to zero, last reader wakes up the sleeping
  *   writer.
+ * - 引用计数到0，最后一个“读者”唤醒睡眠的“写者”
  * - Last reader unlocks the cpu_hotplug.lock.
+ * - 最后一个“读者”释放 cpu_hotplug.lock锁
  * - A new reader arrives at this moment, bumps up the refcount.
+ * - 一个新的“读者”此时到达，影响了引用技术。
  * - The writer acquires the cpu_hotplug.lock finds the refcount
  *   non zero and goes to sleep again.
+ * - “写者”获取cpu_hotplug.lock锁时发现引用计数非0，于是继续睡眠。
  *
  * However, this is very difficult to achieve in practice since
  * get_online_cpus() not an api which is called all that often.
- *
+ * 然而，这实际上很难发生，因为get_online_cpus()不是一个经常被调用的API
  */
 static void cpu_hotplug_begin(void)
 {
@@ -119,6 +129,8 @@ static void cpu_hotplug_begin(void)
 
 	for (;;) {
 		mutex_lock(&cpu_hotplug.lock);
+		/* 直到当前CPU引用计数为0才退出循环，否则一直调度别的进程执行，
+           等到别的进程都执行完了，引用计数自然为0了 */
 		if (likely(!cpu_hotplug.refcount))
 			break;
 		__set_current_state(TASK_UNINTERRUPTIBLE);
@@ -140,6 +152,14 @@ static void cpu_hotplug_done(void)
  * hotplug path before performing hotplug operations. So acquiring that lock
  * guarantees mutual exclusion from any currently running hotplug operations.
  */
+
+/*
+ * 等待当前运行的CPU热插拔操作完成（如果有的话）并且失能CPU热插拔（从sysfs）。
+   锁“cpu_add_remove_lock”保护了标志变量"cpu_hotplug_disabled"。同样的锁在实行
+   热插拔操作前会被热插拔路径获取。因此，获取该锁可以保证与当前正在运行的任何热
+   插拔操作互斥。
+*/
+
 void cpu_hotplug_disable(void)
 {
 	cpu_maps_update_begin();
@@ -203,15 +223,19 @@ EXPORT_SYMBOL(unregister_cpu_notifier);
 
 /**
  * clear_tasks_mm_cpumask - Safely clear tasks' mm_cpumask for a CPU
+   为CPU安全的清楚任务的mm_cpumask
  * @cpu: a CPU id
  *
  * This function walks all processes, finds a valid mm struct for each one and
  * then clears a corresponding bit in mm's cpumask.  While this all sounds
  * trivial, there are various non-obvious corner cases, which this function
  * tries to solve in a safe manner.
+ * 该函数遍历所有进程，为之寻找有效的mm struct并且清除相应mm的cpumask。
+ * 虽然这听起来微不足道，但是有各种不明显的角落情况，这个函数试图安全的解决。
  *
  * Also note that the function uses a somewhat relaxed locking scheme, so it may
  * be called only for an already offlined CPU.
+ * 另请注意，该函数使用稍微宽松的锁定方案，因此只能为已经脱机的CPU调用它。
  */
 void clear_tasks_mm_cpumask(int cpu)
 {
@@ -224,6 +248,12 @@ void clear_tasks_mm_cpumask(int cpu)
 	 * Thus, we may use rcu_read_lock() here, instead of grabbing
 	 * full-fledged tasklist_lock.
 	 */
+
+     /* 这个函数在CPU被标记脱机后调用，因此它不像新任务将在其mm掩码中获得此cpu集。
+      * 因此，我们可以在这里使用rcu_read_lock（），而不是抓住完整的tasklist_lock。
+     */
+
+
 	WARN_ON(cpu_online(cpu));
 	rcu_read_lock();
 	for_each_process(p) {

@@ -45,6 +45,9 @@ static int cpu_pm_notify(enum cpu_pm_event event, int nr_to_call, int *nr_calls)
  * This function may sleep, and has the same return conditions as
  * raw_notifier_chain_register.
  */
+
+/* 注册notifier到notifier_chain里
+   当通知该链表时，会调用注册的所有struct notifier_block里包含的回调函数 */
 int cpu_pm_register_notifier(struct notifier_block *nb)
 {
 	unsigned long flags;
@@ -95,6 +98,8 @@ EXPORT_SYMBOL_GPL(cpu_pm_unregister_notifier);
  *
  * Return conditions are same as __raw_notifier_call_chain.
  */
+
+/* 向内核通知链cpu_pm_notifier_lock发送CPU_PM_ENTER通知 */
 int cpu_pm_enter(void)
 {
 	int nr_calls;
