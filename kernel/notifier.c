@@ -61,15 +61,19 @@ static int notifier_chain_unregister(struct notifier_block **nl,
 
 /**
  * notifier_call_chain - Informs the registered notifiers about an event.
+ *						 通知注册的notifiers某一event
  *	@nl:		Pointer to head of the blocking notifier chain
  *	@val:		Value passed unmodified to notifier function
  *	@v:		Pointer passed unmodified to notifier function
  *	@nr_to_call:	Number of notifier functions to be called. Don't care
  *			value of this parameter is -1.
+ *                  将被调用的notifier函数数量，无视-1参数值。
  *	@nr_calls:	Records the number of notifications sent. Don't care
  *			value of this field is NULL.
+ *              记录发送的通知的数量。物质NULL参数值。
  *	@returns:	notifier_call_chain returns the value returned by the
  *			last notifier function called.
+ *              返回最后一个notifier函数的返回值。
  */
 static int __kprobes notifier_call_chain(struct notifier_block **nl,
 					unsigned long val, void *v,
@@ -331,15 +335,21 @@ EXPORT_SYMBOL_GPL(blocking_notifier_call_chain);
  *	the caller must provide it.  Use at your own risk!
  */
 
+/*	原始通知链没有保护，调用者来提供保护，风险自己承担 */
+
 /**
  *	raw_notifier_chain_register - Add notifier to a raw notifier chain
+ *  							  为特定原始通知链添加notifier
  *	@nh: Pointer to head of the raw notifier chain
+ *       指向原始通知链的指针
  *	@n: New entry in notifier chain
+ *      通知链中的新项
  *
  *	Adds a notifier to a raw notifier chain.
  *	All locking must be provided by the caller.
  *
  *	Currently always returns zero.
+ *  函数目前永远返回0
  */
 int raw_notifier_chain_register(struct raw_notifier_head *nh,
 		struct notifier_block *n)
@@ -367,14 +377,19 @@ EXPORT_SYMBOL_GPL(raw_notifier_chain_unregister);
 
 /**
  *	__raw_notifier_call_chain - Call functions in a raw notifier chain
+ *                              调用某条原始通知链中的函数
  *	@nh: Pointer to head of the raw notifier chain
+ *       指向原始通知链
  *	@val: Value passed unmodified to notifier function
+ *        传递给notifier函数的原始值
  *	@v: Pointer passed unmodified to notifier function
+ *      传递给notifier函数的未经修改的指针
  *	@nr_to_call: See comment for notifier_call_chain.
  *	@nr_calls: See comment for notifier_call_chain
  *
  *	Calls each function in a notifier chain in turn.  The functions
  *	run in an undefined context.
+ *  轮流调用特定通知链中的每个函数。函数运行在未定义的上下文中。
  *	All locking must be provided by the caller.
  *
  *	If the return value of the notifier can be and'ed

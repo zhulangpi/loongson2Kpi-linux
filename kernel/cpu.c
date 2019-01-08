@@ -24,12 +24,15 @@
 
 #ifdef CONFIG_SMP
 /* Serializes the updates to cpu_online_mask, cpu_present_mask */
+/* 串行化对cpu_online_mask, cpu_present_mask的更新，所以定义个互斥量  */
 static DEFINE_MUTEX(cpu_add_remove_lock);
+
 
 /*
  * The following two API's must be used when attempting
  * to serialize the updates to cpu_online_mask, cpu_present_mask.
  */
+/* 两个为刚定义的互斥量加解锁的API  */
 void cpu_maps_update_begin(void)
 {
 	mutex_lock(&cpu_add_remove_lock);
@@ -45,17 +48,21 @@ static RAW_NOTIFIER_HEAD(cpu_chain);
 /* If set, cpu_up and cpu_down will return -EBUSY and do nothing.
  * Should always be manipulated under cpu_add_remove_lock
  */
+/* 如果该变量被失能，cpu_up()和cpu_down()返回-EBUSY并且不做操作。
+   只有在持有cpu_add_remove_lock锁时才可以操作该变量。*/
 static int cpu_hotplug_disabled;
 
 #ifdef CONFIG_HOTPLUG_CPU
 
 static struct {
 	struct task_struct *active_writer;
+	/* 用于同步访问refcount的互斥量  */
 	struct mutex lock; /* Synchronizes accesses to refcount, */
 	/*
 	 * Also blocks the new readers during
 	 * an ongoing cpu hotplug operation.
 	 */
+	/* 在CPU热插拔操作期间会阻塞新的readers（这样在插拔完成后才能读取refcount的值）  */
 	int refcount;
 } cpu_hotplug = {
 	.active_writer = NULL,
@@ -63,7 +70,7 @@ static struct {
 	.refcount = 0,
 };
 
-/* 增加当前CPU的进程引用计数？ */
+/* 增加当前CPU的进程引用计数？，由reader调用 */
 void get_online_cpus(void)
 {
 	might_sleep();
@@ -76,15 +83,18 @@ void get_online_cpus(void)
 }
 EXPORT_SYMBOL_GPL(get_online_cpus);
 
+/* 由reader调用，表示不再引用，减refcount，如果都没有reader了，就唤醒writer */
 void put_online_cpus(void)
 {
 	if (cpu_hotplug.active_writer == current)
 		return;
 	mutex_lock(&cpu_hotplug.lock);
 
+	/* 如果当前计数为0，这是不应该的，因为至少有当前进程在活动，所以需要修正  */
 	if (WARN_ON(!cpu_hotplug.refcount))
 		cpu_hotplug.refcount++; /* try to fix things up */
 
+	/* 执行put操作，即减一，减完为0（不存在其余reader了）且存在active_writer,则唤醒active_writer  */
 	if (!--cpu_hotplug.refcount && unlikely(cpu_hotplug.active_writer))
 		wake_up_process(cpu_hotplug.active_writer);
 	mutex_unlock(&cpu_hotplug.lock);
@@ -99,25 +109,25 @@ EXPORT_SYMBOL_GPL(put_online_cpus);
  *
  * Note that during a cpu-hotplug operation, the new readers, if any,
  * will be blocked by the cpu_hotplug.lock
- * 注意在CPU热插拔期间，任何新的“读者”都会被cpu_hotplug.lock锁阻塞
+ * 注意在CPU热插拔期间，任何新的“reader”都会被cpu_hotplug.lock锁阻塞
  *
  * Since cpu_hotplug_begin() is always called after invoking
  * cpu_maps_update_begin(), we can be sure that only one writer is active.
  * 因为总是先调用cpu_maps_update_begin()再调用cpu_hotplug_begin()，我们可以
- * 确定只有一个“写者”是活跃的。
+ * 确定只有一个“writer”是活跃的。
  *
  * Note that theoretically, there is a possibility of a livelock:
  * 注意，理论上只有一种 活锁：
  * - Refcount goes to zero, last reader wakes up the sleeping
  *   writer.
- * - 引用计数到0，最后一个“读者”唤醒睡眠的“写者”
+ * - 引用计数到0，最后一个“reader”唤醒睡眠的“writer”
  * - Last reader unlocks the cpu_hotplug.lock.
- * - 最后一个“读者”释放 cpu_hotplug.lock锁
+ * - 最后一个“reader”释放 cpu_hotplug.lock锁
  * - A new reader arrives at this moment, bumps up the refcount.
- * - 一个新的“读者”此时到达，影响了引用技术。
+ * - 一个新的“reader”此时到达，影响了引用计数。
  * - The writer acquires the cpu_hotplug.lock finds the refcount
  *   non zero and goes to sleep again.
- * - “写者”获取cpu_hotplug.lock锁时发现引用计数非0，于是继续睡眠。
+ * - “writer”获取cpu_hotplug.lock锁时发现引用计数非0，于是继续睡眠。
  *
  * However, this is very difficult to achieve in practice since
  * get_online_cpus() not an api which is called all that often.
@@ -125,12 +135,17 @@ EXPORT_SYMBOL_GPL(put_online_cpus);
  */
 static void cpu_hotplug_begin(void)
 {
+	/* activer_writer最后会被唤醒  */
 	cpu_hotplug.active_writer = current;
 
 	for (;;) {
 		mutex_lock(&cpu_hotplug.lock);
 		/* 直到当前CPU引用计数为0才退出循环，否则一直调度别的进程执行，
-           等到别的进程都执行完了，引用计数自然为0了 */
+           等到别的进程都执行完了，引用计数自然为0了，而引用计数一旦为
+		   0了，最后一个“别的进程”会唤醒调用该cpu_hotplug_begin()的进程 */
+
+		/* 在没有reader的情况下返回到此，退出该函数，此时锁还没被释放，
+		   由cpu_hotplug_done()执行释放。  */
 		if (likely(!cpu_hotplug.refcount))
 			break;
 		__set_current_state(TASK_UNINTERRUPTIBLE);
@@ -155,9 +170,9 @@ static void cpu_hotplug_done(void)
 
 /*
  * 等待当前运行的CPU热插拔操作完成（如果有的话）并且失能CPU热插拔（从sysfs）。
-   锁“cpu_add_remove_lock”保护了标志变量"cpu_hotplug_disabled"。同样的锁在实行
-   热插拔操作前会被热插拔路径获取。因此，获取该锁可以保证与当前正在运行的任何热
-   插拔操作互斥。
+   锁“cpu_add_remove_lock”保护了标志变量"cpu_hotplug_disabled"。该锁在执行
+   热插拔操作前会被热插拔代码路径获取，也就是说，只有没有热插拔代码执行时才能
+   失能CPU热插拔。因此，获取该锁可以保证与任何热插拔操作互斥。
 */
 
 void cpu_hotplug_disable(void)
@@ -174,12 +189,13 @@ void cpu_hotplug_enable(void)
 	cpu_maps_update_done();
 }
 
-#else /* #if CONFIG_HOTPLUG_CPU */
+#else /* #if !CONFIG_HOTPLUG_CPU */
 static void cpu_hotplug_begin(void) {}
 static void cpu_hotplug_done(void) {}
-#endif	/* #else #if CONFIG_HOTPLUG_CPU */
+#endif	/* #if CONFIG_HOTPLUG_CPU */
 
 /* Need to know about CPUs going up/down? */
+/* 在cpu_chain上注册notifier，该操作也是在锁互斥"cpu_add_remove_lock"保护下执行的 */
 int __ref register_cpu_notifier(struct notifier_block *nb)
 {
 	int ret;
@@ -189,6 +205,7 @@ int __ref register_cpu_notifier(struct notifier_block *nb)
 	return ret;
 }
 
+/* 给cpu_chain发通知 */
 static int __cpu_notify(unsigned long val, void *v, int nr_to_call,
 			int *nr_calls)
 {
