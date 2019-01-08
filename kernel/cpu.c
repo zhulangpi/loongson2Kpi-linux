@@ -206,6 +206,7 @@ int __ref register_cpu_notifier(struct notifier_block *nb)
 }
 
 /* 给cpu_chain发通知 */
+/* val,v会被传送给cpu_chain上注册的回调函数  */
 static int __cpu_notify(unsigned long val, void *v, int nr_to_call,
 			int *nr_calls)
 {
@@ -240,19 +241,19 @@ EXPORT_SYMBOL(unregister_cpu_notifier);
 
 /**
  * clear_tasks_mm_cpumask - Safely clear tasks' mm_cpumask for a CPU
-   为CPU安全的清楚任务的mm_cpumask
+                            为某个CPU安全的清除任务的mm_cpumask
  * @cpu: a CPU id
  *
  * This function walks all processes, finds a valid mm struct for each one and
  * then clears a corresponding bit in mm's cpumask.  While this all sounds
  * trivial, there are various non-obvious corner cases, which this function
  * tries to solve in a safe manner.
- * 该函数遍历所有进程，为之寻找有效的mm struct并且清除相应mm的cpumask。
+ * 该函数遍历所有进程，寻找所有有效的mm struct并清除相应mm的cpumask。
  * 虽然这听起来微不足道，但是有各种不明显的角落情况，这个函数试图安全的解决。
  *
  * Also note that the function uses a somewhat relaxed locking scheme, so it may
  * be called only for an already offlined CPU.
- * 另请注意，该函数使用稍微宽松的锁定方案，因此只能为已经脱机的CPU调用它。
+ * 另请注意，该函数使用稍微宽松的锁定方案，因此只能为已经脱机的CPU调用它（并不是让脱机的CPU来调用）。
  */
 void clear_tasks_mm_cpumask(int cpu)
 {
@@ -265,7 +266,6 @@ void clear_tasks_mm_cpumask(int cpu)
 	 * Thus, we may use rcu_read_lock() here, instead of grabbing
 	 * full-fledged tasklist_lock.
 	 */
-
      /* 这个函数在CPU被标记脱机后调用，因此它不像新任务将在其mm掩码中获得此cpu集。
       * 因此，我们可以在这里使用rcu_read_lock（），而不是抓住完整的tasklist_lock。
      */
@@ -280,6 +280,8 @@ void clear_tasks_mm_cpumask(int cpu)
 		 * Main thread might exit, but other threads may still have
 		 * a valid mm. Find one.
 		 */
+
+        /* 主线程可能已经推出，但是其他线程仍然可能有有效的->mm域，找到它。*/
 		t = find_lock_task_mm(p);
 		if (!t)
 			continue;
@@ -289,6 +291,7 @@ void clear_tasks_mm_cpumask(int cpu)
 	rcu_read_unlock();
 }
 
+/* 打印某个cpu上所有的进程？ */
 static inline void check_for_tasks(int cpu)
 {
 	struct task_struct *p;
@@ -323,7 +326,7 @@ static int __ref take_cpu_down(void *_param)
 	if (err < 0)
 		return err;
 
-	cpu_notify(CPU_DYING | param->mod, param->hcpu);
+	cpu_notify(CPU_DYING | param->mod, param->hcpu);//该函数的两个参数会传给notifier的回调函数
 	/* Park the stopper thread */
 	kthread_park(current);
 	return 0;

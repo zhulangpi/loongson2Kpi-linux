@@ -98,6 +98,9 @@ static bool has_intersects_mems_allowed(struct task_struct *tsk,
  * pointer.  Return p, or any of its subthreads with a valid ->mm, with
  * task_lock() held.
  */
+
+/* 进程p在退出或通过use_mm()时可能已经分离了自己的->mm，但是其一个或多个子线程可能仍然具有有效指针。
+   返回p或其任何带有有效的->mm的子线程，并保持task_lock()。 */
 struct task_struct *find_lock_task_mm(struct task_struct *p)
 {
 	struct task_struct *t;
@@ -105,6 +108,7 @@ struct task_struct *find_lock_task_mm(struct task_struct *p)
 	rcu_read_lock();
 
 	for_each_thread(p, t) {
+		/* 给线程上自旋锁，防止别的CPU访问该线程？ */
 		task_lock(t);
 		if (likely(t->mm))
 			goto found;
