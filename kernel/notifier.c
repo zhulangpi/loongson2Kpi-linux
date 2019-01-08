@@ -70,7 +70,7 @@ static int notifier_chain_unregister(struct notifier_block **nl,
  *                  将被调用的notifier函数数量，无视-1参数值。
  *	@nr_calls:	Records the number of notifications sent. Don't care
  *			value of this field is NULL.
- *              记录发送的通知的数量。物质NULL参数值。
+ *              记录发送的通知的数量。无视NULL参数值。
  *	@returns:	notifier_call_chain returns the value returned by the
  *			last notifier function called.
  *              返回最后一个notifier函数的返回值。
