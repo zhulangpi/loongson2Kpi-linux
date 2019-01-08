@@ -324,7 +324,7 @@ A: The following happen, listed in no particular order :-)
 - All processes are migrated away from this outgoing CPU to new CPUs.
   The new CPU is chosen from each process' current cpuset, which may be
   a subset of all online CPUs.
-  此CPU上的所有进程都被迁移到新的CPU上。新CPU通过每个进程的当前处理器设置（cpuset）进行选择，这些设置可能是所有在用CPU的子集。
+  此CPU上的所有进程都被迁移到新的CPU上。新CPU通过每个进程当前的cpuset进行选择，这可能是所有online CPU的子集。
 - All interrupts targeted to this CPU is migrated to a new CPU
   所有定向到此CPU上的中断都被迁移到新的CPU上。
 - timers/bottom half/task lets are also migrated to a new CPU
@@ -435,7 +435,7 @@ A: The following are what is required for CPU hotplug infrastructure to work
                           per_cpu state to be set, to ensure the processor
                           dead routine is called to be sure positively.
                           此函数用来确认某个CPU是否真的被关掉了。最好还是去仔细看一下为其它体系结构而编写的热插拔代码。
-                          尤其是在这种体系结构上，如何将CPU中idle()循环中关掉。__cpu_die()通常是在等待某些每CPU状态被
+                          尤其是在这种体系结构上，如何将CPU中idle()循环中关掉。__cpu_die()通常是在等待某些per_cpu状态被
                           设置，以确保处理器关闭例程被正确地调用。
 
 Q: I need to ensure that a particular cpu is not removed when there is some
