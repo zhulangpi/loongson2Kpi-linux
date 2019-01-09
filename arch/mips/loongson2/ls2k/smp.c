@@ -292,7 +292,9 @@ static int loongson3_cpu_disable(void)
 		return -EBUSY;
 
 	set_cpu_online(cpu, false);
+	/* arch/mips/kernel/smp.c:  cpumask_t cpu_callin_map; */
 	cpu_clear(cpu, cpu_callin_map);
+	/* 把当前中断状态保存到flags中，然后禁用当前处理器上的中断发送。注意, flags 被直接传递, 而不是通过指针来传递。*/
 	local_irq_save(flags);
 	fixup_irqs();
 	local_irq_restore(flags);

@@ -272,6 +272,7 @@ static inline irq_hw_number_t irqd_to_hwirq(struct irq_data *d)
 
 /**
  * struct irq_chip - hardware interrupt chip descriptor
+ *                   硬件中断芯片描述符
  *
  * @name:		name for /proc/interrupts
  * @irq_startup:	start up the interrupt (defaults to ->enable if NULL)
@@ -291,6 +292,7 @@ static inline irq_hw_number_t irqd_to_hwirq(struct irq_data *d)
  * @irq_bus_sync_unlock:function to sync and unlock slow bus (i2c) chips
  * @irq_cpu_online:	configure an interrupt source for a secondary CPU
  * @irq_cpu_offline:	un-configure an interrupt source for a secondary CPU
+ *                      取消配置某个辅助CPU的中断源
  * @irq_suspend:	function called from core code on suspend once per chip
  * @irq_resume:		function called from core code on resume once per chip
  * @irq_pm_shutdown:	function called from core code on shutdown once per chip

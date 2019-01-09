@@ -6,6 +6,8 @@
  * set of CPU's in a system, one bit position per CPU number.  In general,
  * only nr_cpu_ids (<= NR_CPUS) bits are valid.
  */
+
+/* cpumasks提供了一个位图，以此代表系统中的CPU集，每个CPU一位比特。通常只有nr_cpu_ids(<=NR_CPUS)位有效  */
 #include <linux/kernel.h>
 #include <linux/threads.h>
 #include <linux/bitmap.h>
@@ -53,14 +55,21 @@ extern int nr_cpu_ids;
  *  representing which CPUs are currently plugged in.  And
  *  cpu_online_mask is the dynamic subset of cpu_present_mask,
  *  indicating those CPUs available for scheduling.
+ *  cpu_possible_mask在启动时固定，代表在启动时任何时候可能插入的CPU的ID集合。
+ *  cpu_present_mask是动态的，代表当前插入的CPU集。
+ *  cpu_online_mask是cpu_present_mask的动态的子集，代表可供调度的CPU。
  *
  *  If HOTPLUG is enabled, then cpu_possible_mask is forced to have
  *  all NR_CPUS bits set, otherwise it is just the set of CPUs that
  *  ACPI reports present at boot.
+ *  如果HOTPLUG使能了，cpu_possible_mask的代表所有NR_CPUS的位都会被强制置位，
+ *  否则只会是启动时ACPI报告的CPU集。
  *
  *  If HOTPLUG is enabled, then cpu_present_mask varies dynamically,
  *  depending on what ACPI reports as currently plugged in, otherwise
  *  cpu_present_mask is just a copy of cpu_possible_mask.
+ *  如果HOTPLUG使能，cpu_present_mask动态变化，依赖于ACPI报告的当前插入的CPU，
+ *  否则，cpu_present_mask仅仅是cpu_possible_mask的副本。
  *
  *  (*) Well, cpu_present_mask is dynamic in the hotplug case.  If not
  *      hotplug, it's a copy of cpu_possible_mask, hence fixed at boot.
@@ -249,6 +258,7 @@ int cpumask_any_but(const struct cpumask *mask, unsigned int cpu);
 
 /**
  * cpumask_set_cpu - set a cpu in a cpumask
+ *					 将某个CPU在cpumask里面的标志位置位
  * @cpu: cpu number (< nr_cpu_ids)
  * @dstp: the cpumask pointer
  */
@@ -733,6 +743,7 @@ void init_cpu_online(const struct cpumask *src);
 
 /**
  * to_cpumask - convert an NR_CPUS bitmap to a struct cpumask *
+ *              将一个NR_CPUS位图转换为一个结构体指针
  * @bitmap: the bitmap
  *
  * There are a few places where cpumask_var_t isn't appropriate and

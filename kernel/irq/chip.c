@@ -749,6 +749,7 @@ void irq_cpu_online(void)
  *
  *	Iterate through all irqs and invoke the chip.irq_cpu_offline()
  *	for each.
+ *  遍历所有的irq并且分别调用chip.irq_cpu_offline()
  */
 void irq_cpu_offline(void)
 {
