@@ -65,7 +65,7 @@ More details follow:
              ======>               _cpu_down()                     |
             |              [This takes cpuhotplug.lock             |            [在关闭CPU前获取cpuhotplug.lock锁，
   Common    |               before taking down the CPU             |             在结束时释放锁]
-   code     |               and releases it when done]             | O          运行到这里时，当显著的时间发生时，通过运行
+   code     |               and releases it when done]             | O          运行到这里时，当值得注意的事件发生时，通过运行
             |            While it is at it, notifications          |            所有注册的回调函数，通知被发送。
             |            are sent when notable events occur,       |
              ======>     by running all registered callbacks.      |
