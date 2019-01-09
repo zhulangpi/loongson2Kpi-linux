@@ -322,7 +322,8 @@ static int __ref take_cpu_down(void *_param)
 	int err;
 
 	/* Ensure this CPU doesn't handle any more interrupts. */
-	/* 与__cpu_die()类似，内部执行loongson3_cpu_disable()@arch/mips/loongson2/ls2k/smp.c */
+	/* 与__cpu_die()类似，内部执行loongson3_cpu_disable()@arch/mips/loongson2/ls2k/smp.c 
+	   关闭了该CPU的中断使能位 */
 	err = __cpu_disable();
 	if (err < 0)
 		return err;

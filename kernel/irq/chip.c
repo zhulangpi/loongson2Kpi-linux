@@ -765,10 +765,17 @@ void irq_cpu_offline(void)
 
 		raw_spin_lock_irqsave(&desc->lock, flags);
 
+		/* chip = &desc->irq_data->chip */
 		chip = irq_data_get_irq_chip(&desc->irq_data);
+
+		/* 1.chip指针存在且irq_cpu_offine函数指针存在
+		（龙芯2K1000的irq_cpu_offline域应该是NULL的，所以不会执行该if） 
+		 且2.IRQCHIP_ONOFFLINE_ENABLED标志位没有置位
+		 或3.中断未被失能                            */
 		if (chip && chip->irq_cpu_offline &&
 		    (!(chip->flags & IRQCHIP_ONOFFLINE_ENABLED) ||
 		     !irqd_irq_disabled(&desc->irq_data)))
+		/* 取消配置某个CPU的中断源  */
 			chip->irq_cpu_offline(&desc->irq_data);
 
 		raw_spin_unlock_irqrestore(&desc->lock, flags);

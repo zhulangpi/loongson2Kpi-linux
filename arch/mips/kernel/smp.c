@@ -47,7 +47,7 @@
 #include <asm/mipsmtregs.h>
 #endif /* CONFIG_MIPS_MT_SMTC */
 
-volatile cpumask_t cpu_callin_map;	/* Bitmask of started secondaries */
+volatile cpumask_t cpu_callin_map;	/* Bitmask of started secondaries 已经启动的辅助（非引导？）CPU位掩码 */
 
 int __cpu_number_map[NR_CPUS];		/* Map physical to logical */
 EXPORT_SYMBOL(__cpu_number_map);

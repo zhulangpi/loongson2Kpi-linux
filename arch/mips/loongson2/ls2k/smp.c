@@ -278,7 +278,10 @@ extern void (*flush_cache_all)(void);
 
 void fixup_irqs(void)
 {
+	/* 2k1000在此基本啥也没做  */
 	irq_cpu_offline();
+
+	/* status.[IM7...IM0]清零，中断失能 */
 	clear_c0_status(ST0_IM);
 }
 
@@ -292,12 +295,19 @@ static int loongson3_cpu_disable(void)
 		return -EBUSY;
 
 	set_cpu_online(cpu, false);
-	/* arch/mips/kernel/smp.c:  cpumask_t cpu_callin_map; */
+
+	/* arch/mips/kernel/smp.c: cpumask_t cpu_callin_map; 已经启动的辅助（非引导？）CPU位掩码  */
 	cpu_clear(cpu, cpu_callin_map);
+
 	/* 把当前中断状态保存到flags中，然后禁用当前处理器上的中断发送。注意, flags 被直接传递, 而不是通过指针来传递。*/
 	local_irq_save(flags);
+
 	fixup_irqs();
+
+	/* 用flags恢复中断状态  */
 	local_irq_restore(flags);
+	
+	/* 这里刷cache和tlb是因为该CPU被失能了，所以要把可能修改了的数据刷回RAM？*/
 	flush_cache_all();
 	local_flush_tlb_all();
 
