@@ -186,23 +186,33 @@ static int __stop_cpus(const struct cpumask *cpumask,
  * @fn is run in a process context with the highest priority
  * preempting any task on the cpu and monopolizing it.  This function
  * returns after all executions are complete.
+ * 在@cpumask集描述的所有在线CPU上执行@fn(@arg)。在每个目标CPU上，@fn都以
+ * 最高优先级在进程上下文中运行，抢占该CPU上的所有任务并垄断该CPU。该函数
+ * 在所有执行都完成后返回。
  *
  * This function doesn't guarantee the cpus in @cpumask stay online
  * till @fn completes.  If some cpus go down in the middle, execution
  * on the cpu may happen partially or fully on different cpus.  @fn
  * should either be ready for that or the caller should ensure that
  * the cpus stay online until this function completes.
+ * 这个函数在@fn完成之前都不保证@cpumask里描述的CPU保持在线。如果某个CPU中途脱机，
+ * 执行可能只发生一部分或者在别的CPU上完成全部。@fn应该准备好应对这种情况或者caller应该
+ * 保证CPU直到该函数完成前都不要脱机。
  *
  * All stop_cpus() calls are serialized making it safe for @fn to wait
  * for all cpus to start executing it.
+ * 所有的stops_cpus()调用都是串行的（函数内部有互斥锁，保证该函数的互斥执行），
+ * 这使得@fn可以安全的等待所有CPU执行它（使得@fn不需要可重入？）。
  *
- * CONTEXT:
- * Might sleep.
+ * CONTEXT:上下文
+ * Might sleep.可以睡眠
  *
  * RETURNS:
  * -ENOENT if @fn(@arg) was not executed at all because all cpus in
  * @cpumask were offline; otherwise, 0 if all executions of @fn
  * returned 0, any non zero return value if any returned non zero.
+ * 如果由于@cpumask指定的所有CPU都脱机而造成@fn(@arg)根本未执行，返回-ENOENT；
+ * 否则，如果@fn的所有执行都返回0，返回0；如果有任何非0返回值，返回非0值。
  */
 int stop_cpus(const struct cpumask *cpumask, cpu_stop_fn_t fn, void *arg)
 {
@@ -388,6 +398,7 @@ static void set_state(struct stop_machine_data *smdata,
 		      enum stopmachine_state newstate)
 {
 	/* Reset ack counter. */
+	/* 将atomic_t类型的smdata->thread_ack赋值为smdata->num_threads */
 	atomic_set(&smdata->thread_ack, smdata->num_threads);
 	smp_wmb();
 	smdata->state = newstate;
@@ -452,6 +463,7 @@ int __stop_machine(int (*fn)(void *), void *data, const struct cpumask *cpus)
 					    .num_threads = num_online_cpus(),
 					    .active_cpus = cpus };
 
+	/* 启动后echo 0 > /sys/devices/system/cpu/cpu1/online引发的_cpu_down()调用并没有进入该if路径  */
 	if (!stop_machine_initialized) {
 		/*
 		 * Handle the case where stop_machine() is called
@@ -472,6 +484,7 @@ int __stop_machine(int (*fn)(void *), void *data, const struct cpumask *cpus)
 	}
 
 	/* Set the initial state and stop all online cpus. */
+	/* smdata.state = STOPMACHINE_PREPARE */
 	set_state(&smdata, STOPMACHINE_PREPARE);
 	return stop_cpus(cpu_online_mask, stop_machine_cpu_stop, &smdata);
 }

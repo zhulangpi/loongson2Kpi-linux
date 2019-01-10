@@ -377,6 +377,7 @@ void kthread_unpark(struct task_struct *k)
 
 /**
  * kthread_park - park a thread created by kthread_create().
+ *                暂停某个线程
  * @k: thread created by kthread_create().
  *
  * Sets kthread_should_park() for @k to return true, wakes it, and
@@ -385,6 +386,7 @@ void kthread_unpark(struct task_struct *k)
  * calling threadfn().
  *
  * Returns 0 if the thread is parked, -ENOSYS if the thread exited.
+ * 如果线程暂停了返回0，如果线程退出了返回-ENOSYS
  * If called by the kthread itself just the park bit is set.
  */
 int kthread_park(struct task_struct *k)

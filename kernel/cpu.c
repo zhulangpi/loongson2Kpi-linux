@@ -329,7 +329,8 @@ static int __ref take_cpu_down(void *_param)
 		return err;
 
 	cpu_notify(CPU_DYING | param->mod, param->hcpu);//该函数的两个参数会传给notifier的回调函数
-	/* Park the stopper thread */
+	/* Park the stopper thread (migration thread) */
+	/* 暂停迁移线程  */
 	kthread_park(current);
 	return 0;
 }
@@ -353,14 +354,17 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 
 	cpu_hotplug_begin();
 
+	/* 给通知链上的所有notifier发送CPU_DOWN_PREPARE通知，nr_calls保存通知链上notifier的数量  */
 	err = __cpu_notify(CPU_DOWN_PREPARE | mod, hcpu, -1, &nr_calls);
 	if (err) {
 		nr_calls--;
+		/* 错误处理，给通知链上的所有notifier通知说CPU_DOWN_FAILED，nr_calls表示了所有的数量 */
 		__cpu_notify(CPU_DOWN_FAILED | mod, hcpu, nr_calls, NULL);
 		printk("%s: attempt to take down CPU %u failed\n",
 				__func__, cpu);
 		goto out_release;
 	}
+	/* stop是进程生命终结，park是暂停。暂停特定CPU上的内核线程（per-cpu线程？） */
 	smpboot_park_threads(cpu);
 
 	err = __stop_machine(take_cpu_down, &tcd_param, cpumask_of(cpu));
@@ -379,6 +383,8 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 	 *
 	 * Wait for the stop thread to go away.
 	 */
+	/* 迁移调用的CPU_DYING的回调函数可能已经从CPU移除了所有的可运行任务，现在只剩idle任务，
+	   即迁移线程完成了stop_machine事务。 */
 	while (!idle_cpu(cpu))
 		cpu_relax();
 
