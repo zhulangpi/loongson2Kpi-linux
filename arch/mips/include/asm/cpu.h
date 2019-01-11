@@ -209,7 +209,9 @@
 #define PRID_REV_LOONGSON3B_R2	0x0007
 #define PRID_REV_LOONGSON3A2000	0x0008
 #define PRID_REV_LOONGSON3A3000	0x0009
-#define PRID_REV_LOONGSON2K	0x0001
+/* #define PRID_REV_LOONGSON2K	0x0001 */
+/* 实测2k1000 PrId寄存器值为0x00146103 */
+#define PRID_REV_LOONGSON2K	0x0003
 
 /*
  * Older processors used to encode processor version and revision in two

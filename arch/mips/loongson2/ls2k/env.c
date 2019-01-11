@@ -130,6 +130,8 @@ void __init prom_init_env(void)
 	especial = (struct loongson_special_attribute *)
 		((u64)loongson_p + loongson_p->special_offset);
 
+	/* 2k1000中cputype==0x02，应该是通过PMON传递的，当前函数用于解析PMON的传参 */
+    /* 0x02对应arch/mips/include/asm/mach-loongson2k/boot_param.h中的Loongson_3A枚举值 */
 	cputype = ecpu->cputype;
 	cores_per_node = 2;
 	cores_per_package = 2;

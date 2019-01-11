@@ -534,6 +534,9 @@ void play_dead(void)
 		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A)
 			play_dead_at_ckseg1 =
 				(void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
+        else if ((read_c0_prid() & PRID_REV_MASK) == PRID_REV_LOONGSON2K)
+            play_dead_at_ckseg1 =
+                (void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
 		else
 			play_dead_at_ckseg1 =
 				(void *)CKSEG1ADDR((unsigned long)loongson3a2000_play_dead);
