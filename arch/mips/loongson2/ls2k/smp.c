@@ -330,11 +330,11 @@ static void loongson3_cpu_die(unsigned int cpu)
 void loongson3a_play_dead(int *state_addr)
 {
 	__asm__ __volatile__(
-		"      .set push                         \n"
+		"      .set push                         \n" /* .set push--save all settings  */
 		"      .set noreorder                    \n"
 		"      li $t0, 0x80000000                \n" /* KSEG0 */
 		"      li $t1, 512                       \n" /* num of L1 entries */
-		"1:    cache 0, 0($t0)                   \n" /* flush L1 ICache */
+		"1:    cache 0, 0($t0)                   \n" /* flush L1 ICache */ /* 2k1000一行64B */
 		"      cache 0, 1($t0)                   \n"
 		"      cache 0, 2($t0)                   \n"
 		"      cache 0, 3($t0)                   \n"
@@ -346,27 +346,29 @@ void loongson3a_play_dead(int *state_addr)
 		"      bnez  $t1, 1b                     \n"
 		"      addiu $t1, $t1, -1                \n"
 		"      li    $t0, 0x7                    \n" /* *state_addr = CPU_DEAD; */
-		"      sw    $t0, 0($a0)                 \n"
-		"      sync                              \n"
+		"      sw    $t0, 0($a0)                 \n" /* 内存地址$a0+0处写$t0(0x07)  */
+		"      sync                              \n" /* sync前面发起的存取操作，sync后的指令都可见  */
 		"      cache 21, 0($a0)                  \n" /* flush entry of *state_addr */
-		"      .set pop                          \n");
+		"      .set pop                          \n"); /* restore saved settings  */
 
 	__asm__ __volatile__(
 		"      .set push                         \n"
 		"      .set noreorder                    \n"
 		"      .set mips64                       \n"
-		"      mfc0  $t2, $15, 1                 \n"
-		"      andi  $t2, 0x3ff                  \n"
-		"      dli   $t0, 0x900000003ff01000     \n"
-		"      andi  $t3, $t2, 0x3               \n"
-		"      sll   $t3, 8                      \n"  /* get cpu id */
-		"      or    $t0, $t0, $t3               \n"
-		"      andi  $t1, $t2, 0xc               \n"
-		"      dsll  $t1, 42                     \n"  /* get node id */
-		"      or    $t0, $t0, $t1               \n"
+		"      mfc0  $t2, $15, 1                 \n"  /* $t2 = CP0.15.1(EBase)  */
+		"      andi  $t2, 0x3ff                  \n"  /* $t2 &= 0x3ff，取[9,0]低十位，得Node号和CPU号 */
+		/* 位于xkphy地址段，最高两位[63,62]为10b，[61,59]为缓存一致属性,[39,0]为物理地址，0x3ff0 1000是3A1000 0号处理器的IPI_Status寄存器 */
+		"      dli   $t0, 0x900000003ff01000     \n"  /* $t0 = 0x9000 0000 3ff0 1000  */
+		"      andi  $t3, $t2, 0x3               \n"  /* $t3 = $t2 & 0x3，取低两位CPU号 */
+		"      sll   $t3, 8                      \n"  /* get cpu id */ /* $t3 <<= 8 */
+		"      or    $t0, $t0, $t3               \n"  /* $t0 |= $t3 ，取得对应CPU的IPI_Status寄存器的地址 */
+		"      andi  $t1, $t2, 0xc               \n"  /* $t1 = $t2 & 0xc(1100b)，取Node号 */
+		"      dsll  $t1, 42                     \n"  /* get node id */ /* $t1 <<=42  */
+		"      or    $t0, $t0, $t1               \n"  /* $t0 |= $t1 */
 		"1:    li    $a0, 0x100                  \n"  /* wait for init loop */
 		"2:    bnez  $a0, 2b                     \n"  /* idle loop */
-		"      addiu $a0, -1                     \n"
+		"      addiu $a0, -1                     \n"  /* 该指令位于分支延时槽，与前面两行形成0x100次循环 */
+		/* 因为整个函数由待脱机CPU执行，这里通过mailbox得到的PC可能是idle进程，最后CPU会跳转到该PC */
 		"      lw    $v0, 0x20($t0)              \n"  /* get PC via mailbox */
 		"      beqz  $v0, 1b                     \n"
 		"      nop                               \n"
@@ -377,6 +379,55 @@ void loongson3a_play_dead(int *state_addr)
 		"      nop                               \n"
 		"      .set pop                          \n");
 }
+
+void loongson2k_play_dead(int *state_addr)
+{
+    __asm__ __volatile__(
+        "      .set push                         \n"
+        "      .set noreorder                    \n"
+        "      li $t0, 0x80000000                \n" /* KSEG0 */
+        "      li $t1, 512                       \n" /* num of L1 entries */
+        "1:    cache 0, 0($t0)                   \n" /* flush L1 ICache */
+        "      cache 0, 1($t0)                   \n"
+        "      cache 0, 2($t0)                   \n"
+        "      cache 0, 3($t0)                   \n"
+        "      cache 1, 0($t0)                   \n" /* flush L1 DCache */
+        "      cache 1, 1($t0)                   \n"
+        "      cache 1, 2($t0)                   \n"
+        "      cache 1, 3($t0)                   \n"
+        "      addiu $t0, $t0, 0x20              \n"
+        "      bnez  $t1, 1b                     \n"
+        "      addiu $t1, $t1, -1                \n"
+        "      li    $t0, 0x7                    \n" /* *state_addr = CPU_DEAD; */
+        "      sw    $t0, 0($a0)                 \n"
+        "      sync                              \n"
+        "      cache 21, 0($a0)                  \n" /* flush entry of *state_addr */
+        "      .set pop                          \n");
+
+    __asm__ __volatile__(
+        "      .set push                         \n"
+        "      .set noreorder                    \n"
+        "      .set mips64                       \n"
+        "      mfc0  $t2, $15, 1                 \n"
+        "      andi  $t2, 0x3ff                  \n"
+        "      dli   $t0, 0x900000001fe11000     \n"
+        "      andi  $t3, $t2, 0x3               \n"
+        "      sll   $t3, 8                      \n"  /* get cpu id */
+        "      or    $t0, $t0, $t3               \n"
+        "1:    li    $a0, 0x100                  \n"  /* wait for init loop */
+        "2:    bnez  $a0, 2b                     \n"  /* idle loop */
+        "      addiu $a0, -1                     \n"
+        "      lw    $v0, 0x20($t0)              \n"  /* get PC via mailbox */
+        "      beqz  $v0, 1b                     \n"
+        "      nop                               \n"
+        "      ld    $sp, 0x28($t0)              \n"  /* get SP via mailbox */
+        "      ld    $gp, 0x30($t0)              \n"  /* get GP via mailbox */
+        "      ld    $a1, 0x38($t0)              \n"
+        "      jr  $v0                           \n"  /* jump to initial PC */
+        "      nop                               \n"
+        "      .set pop                          \n");
+}
+
 void loongson3b_play_dead(int *state_addr)
 
 {
@@ -536,7 +587,7 @@ void play_dead(void)
 				(void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
         else if ((read_c0_prid() & PRID_REV_MASK) == PRID_REV_LOONGSON2K)
             play_dead_at_ckseg1 =
-                (void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
+                (void *)CKSEG1ADDR((unsigned long)loongson2k_play_dead);
 		else
 			play_dead_at_ckseg1 =
 				(void *)CKSEG1ADDR((unsigned long)loongson3a2000_play_dead);
