@@ -383,8 +383,8 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 	 *
 	 * Wait for the stop thread to go away.
 	 */
-	/* 迁移调用的CPU_DYING的回调函数可能已经从CPU移除了所有的可运行任务，现在只剩idle任务，
-	   即迁移线程完成了stop_machine事务。 */
+	/* kernel/sched/core.c中migration_call()函数是cpu notifier的回调函数，其中的CPU_DYING分支负责从CPU移除所有的可运行任务，
+	   使得只剩下idle任务，即迁移线程完成了stop_machine事务。接下来等待stop线程"离开"？ */
 	while (!idle_cpu(cpu))
 		cpu_relax();
 
