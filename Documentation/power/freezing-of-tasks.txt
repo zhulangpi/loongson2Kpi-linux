@@ -6,6 +6,7 @@ I. What is the freezing of tasks?
 The freezing of tasks is a mechanism by which user space processes and some
 kernel threads are controlled during hibernation or system-wide suspend (on some
 architectures).
+任务冻结是一种机制，用于在休眠或系统级挂起（某些架构上）时控制用户进程和一些内核线程。
 
 II. How does it work?
 
@@ -15,6 +16,9 @@ PF_NOFREEZE unset (all user space processes and some kernel threads) are
 regarded as 'freezable' and treated in a special way before the system enters a
 suspend state as well as before a hibernation image is created (in what follows
 we only consider hibernation, but the description also applies to suspend).
+每个任务都有三个相关的标志位，PF_NOFREEZE，PF_FROZEN和PF_FREEZER_SKIP（最后一个用于辅助）。
+标志位PF_NOFREEZE没有被置位（）的任务被认为是“可冻结的”，在系统进入挂起状态以及休眠镜像被创建前，
+这些任务会被特殊对待（下文我们只考虑休眠，但实际也适用于挂起）。
 
 Namely, as the first step of the hibernation procedure the function
 freeze_processes() (defined in kernel/power/process.c) is called.  A system-wide
@@ -30,10 +34,21 @@ it loop until PF_FROZEN is cleared for it. Then, we say that the task is
 to as 'the freezer' (these functions are defined in kernel/power/process.c,
 kernel/freezer.c & include/linux/freezer.h). User space processes are generally
 frozen before kernel threads.
+函数freeze_processes()（定义在kernel/power/process.c中）作为休眠过程的第一步被调用。
+一个全局变量system_freezing_cnt（不是每个任务独有的）被用于指明系统是否在“冻结”过程之中。
+函数freeze_processes()设置了这个变量。这之后，执行函数try_to_freeze_tasks()来发送一个
+伪信号给所有的用户进程并且唤醒所有的内核线程。所有的可冻结任务必须通过调用函数try_to_freeze()
+来回应，try_to_freeze()会导致函数__refrigerator()被调用（定义在kernel/freezer.c中）。
+而函数__refrigerator()会设置任务的PF_FROZEN标志位，并改变任务的状态到TASK_UNINTERRUPTIBLE，
+然后使其循环直到PF_FROZEN标志被清除。之后，我们称这些任务为“冻住的”，所以处理这个机制的函数集
+被称为“冻结器”（这些函数定义在kernel/power/process.c，kernel/freezer.c & include/linux/freezer.h）。
+用户进程通常在内核线程前被冻结。
 
 __refrigerator() must not be called directly.  Instead, use the
 try_to_freeze() function (defined in include/linux/freezer.h), that checks
 if the task is to be frozen and makes the task enter __refrigerator().
+函数__refrigerator()不能被直接调用。而是直接使用函数try_to_freeze()（定义在include/linux/freezer.h），
+它检查任务是否任务将被冻结并且让任务进入函数__refrigerator()。
 
 For user space processes try_to_freeze() is called automatically from the
 signal-handling code, but the freezable kernel threads need to call it
@@ -42,6 +57,10 @@ wait_event_freezable_timeout() macros (defined in include/linux/freezer.h)
 that combine interruptible sleep with checking if the task is to be frozen and
 calling try_to_freeze().  The main loop of a freezable kernel thread may look
 like the following one:
+对于用户进程而言，函数try_to_freeze()是在信号处理代码中被自动调用的，但是可冻结的内核线程需要
+在合适的地方显式调用它，或者使用函数wait_event_freezable()或宏wait_event_freezable_timeout()
+（定义在include/linux/freezer.h中），它们将可中断的睡眠与检查任务是否要被冻结并调用try_to_freeze()
+结合起来。
 
 	set_freezable();
 	do {
@@ -58,39 +77,52 @@ initiated a freezing operation, the freezing of tasks will fail and the entire
 hibernation operation will be cancelled.  For this reason, freezable kernel
 threads must call try_to_freeze() somewhere or use one of the
 wait_event_freezable() and wait_event_freezable_timeout() macros.
+如果一个可冻结内核线程在冻结器已经初始化了一个冻结操作后，未能成功调用函数try_to_freeze()，
+任务的冻结会失败，并且整个休眠操作会退出。因此，可冻结内核线程必须在某处调用函数try_to_freeze()
+或者使用函数wait_event_freezable()或宏wait_event_freezable_timeout()。
 
 After the system memory state has been restored from a hibernation image and
 devices have been reinitialized, the function thaw_processes() is called in
 order to clear the PF_FROZEN flag for each frozen task.  Then, the tasks that
 have been frozen leave __refrigerator() and continue running.
-
+在系统内存状态已经从休眠镜像中恢复并且设备被重新初始化后，函数thaw_processes()被调用，
+用于为每个冻结的任务清楚PF_FROZEN标志位。然后，被冻结的任务退出函数__refrigerator()并且继续运行。
 
 Rationale behind the functions dealing with freezing and thawing of tasks:
+处理冻结和解冻任务的函数背后的基本原理：
 -------------------------------------------------------------------------
 
 freeze_processes():
   - freezes only userspace tasks
+    只冻结用户态任务
 
 freeze_kernel_threads():
   - freezes all tasks (including kernel threads) because we can't freeze
     kernel threads without freezing userspace tasks
+    冻结包括内核线程的所有任务，因为我们不能只冻结内核线程而不冻结用户进程
 
 thaw_kernel_threads():
   - thaws only kernel threads; this is particularly useful if we need to do
     anything special in between thawing of kernel threads and thawing of
     userspace tasks, or if we want to postpone the thawing of userspace tasks
+    只解冻内核线程；这在我们需要在解冻内核线程和解冻用户进程之间做特别操作或者推迟用户态任务
+    解冻时特别有用
 
 thaw_processes():
   - thaws all tasks (including kernel threads) because we can't thaw userspace
     tasks without thawing kernel threads
-
+    解冻包括内核线程的所有任务，因为我们不能只解冻用户进程而不解冻内核线程
 
 III. Which kernel threads are freezable?
-
+     哪些内核线程是可冻结的
+     
 Kernel threads are not freezable by default.  However, a kernel thread may clear
 PF_NOFREEZE for itself by calling set_freezable() (the resetting of PF_NOFREEZE
 directly is not allowed).  From this point it is regarded as freezable
 and must call try_to_freeze() in a suitable place.
+内核线程默认是不能冻结的。然而，一个内核线程可以通过调用函数set_freezable()清除自己的
+PF_NOFREEZE标志位（不允许直接重设PF_NOFREEZE标志位）。这样它会被认为是可冻结的，但是必须在
+合适的地方调用函数try_to_freeze()。
 
 IV. Why do we do that?
 
@@ -109,6 +141,11 @@ cause the on-disk filesystems' data and metadata to be modified after the
 hibernation image has been created and before the system is finally powered off.
 The majority of these are user space processes, but if any of the kernel threads
 may cause something like this to happen, they have to be freezable.
+1.主要原因是防止文件系统在休眠后被破坏。目前我们没有简单的检查点文件系统的方法，因此如果对
+磁盘上的文件系统数据或元数据进行任何修改，我们就无法将它们恢复到修改之前的状态。同时，每个
+休眠镜像包含一些文件系统相关信息，这些信息必须和从镜像恢复的磁盘数据和元数据保持一致（否则
+文件系统会被破坏并难以修复）。所以我们冻结那些在休眠镜像创建后、系统断电前可能引起磁盘上文
+件系统数据和元数据被修改的任务。主要是用户进程，但是任何可能引起类似事件的内核线程也必须被冻结。
 
 2. Next, to create the hibernation image we need to free a sufficient amount of
 memory (approximately 50% of available RAM) and we need to do that before
@@ -118,6 +155,10 @@ additional memory and we prevent them from doing that by freezing them earlier.
 [Of course, this also means that device drivers should not allocate substantial
 amounts of memory from their .suspend() callbacks before hibernation, but this
 is a separate issue.]
+2.另外，为了创建休眠镜像我们需要释放充足的内存（大约可用RAM的50%）并且要在设备被失活之前，
+因为我们通常需要这些设备来做页换出。然后，用于镜像的内存被释放后，我们不希望任务分配额外的内存，
+所以我们通过先冻结它们来防止。[当然，这也意味着设备驱动不应该在休眠前从它们的回调函数.suspend()中
+分配大量的内存，但这是一个单独的问题。]
 
 3. The third reason is to prevent user space processes and some kernel threads
 from interfering with the suspending and resuming of devices.  A user space
