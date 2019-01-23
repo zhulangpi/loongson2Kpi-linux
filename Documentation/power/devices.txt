@@ -9,7 +9,7 @@ management (PM) code is also driver-specific.  Most drivers will do very
 little; others, especially for platforms with small batteries (like cell
 phones), will do a lot.
 Linux大部分代码都是设备驱动，所以大部分的Linux功耗管理代码也是驱动相关的。
-大部分驱动做的工作很少；其他的，尤其时带有小电池的平台（类似手机）会做的很多工作。
+大部分驱动做的工作很少；其他的，尤其时带有小电池的平台（类似手机）会做很多工作。
 
 This writeup gives an overview of how drivers interact with system-wide
 power management goals, emphasizing the models and interfaces that are
@@ -22,19 +22,21 @@ Two Models for Device Power Management
 ======================================
 Drivers will use one or both of these models to put devices into low-power
 states:
+驱动程序会使用一个或全部模型来使设备进入低功耗状态：
 
     System Sleep model:
+    系统休眠模型：
 	Drivers can enter low-power states as part of entering system-wide
 	low-power states like "suspend" (also known as "suspend-to-RAM"), or
 	(mostly for systems with disks) "hibernation" (also known as
 	"suspend-to-disk").
-        驱动进入低功耗状态，这是进入系统级低功耗状态工作的一部分。
+        驱动进入低功耗状态，这是进入系统级低功耗状态的工作的一部分。
 
 	This is something that device, bus, and class drivers collaborate on
 	by implementing various role-specific suspend and resume methods to
 	cleanly power down hardware and software subsystems, then reactivate
 	them without loss of data.
-        这是设备，总线和类驱动程序通过实现各种特定的挂起和恢复方法来协作，
+        设备、总线和类驱动程序通过实现各种特定的挂起和恢复方法来协作，
         以便干净利落地关闭硬件和软件子系统，然后在不丢失数据的情况下重新激活它们。
 
 	Some drivers can manage hardware wakeup events, which make the system
@@ -49,6 +51,7 @@ states:
         但能让整个系统更久地处于低功耗状态。
 
     Runtime Power Management model:
+    实时功耗管理模型：
 	Devices may also be put into low-power states while the system is
 	running, independently of other power management activity in principle.
 	However, devices are not generally independent of each other (for
@@ -58,7 +61,7 @@ states:
 	operations on the device for this purpose.  Devices put into low power
 	states at run time may require special handling during system-wide power
 	transitions (suspend or hibernation).
-	在系统运行时，设备也可以进入低功率状态，原则上与其他电源管理活动无关。但是，
+	在系统运行时，设备也可以进入低功耗状态，原则上与其他电源管理活动无关。但是，
         设备通常不是彼此独立的（例如，除非所有子设备都被挂起，否则不能暂停父设备）。此外，
         根据设备所在的总线类型，可能需要为此在设备上执行一些特定于总线的操作。在运行时进入
         低功耗状态的设备可能需要在系统级电源转换（暂停或休眠）时进行特殊处理。
@@ -79,7 +82,7 @@ have been put into low-power states (at runtime), the effect may be very similar
 to entering some system-wide low-power state (system sleep) ... and that
 synergies exist, so that several drivers using runtime PM might put the system
 into a state where even deeper power saving options are available.
-关于那些低功耗状态没有太多可说的，除了它们是非常特定于系统的，并且通常是特定于设备的。
+关于那些低功耗状态没有太多可说的，只有一点，它们是非常特定于系统的，并且通常是特定于设备的。
 此外，如果有足够的设备进入低功耗状态（在运行时），效果可能非常类似于进入一些系统级的低功耗状态（系统睡眠）
 ......并且存在协同作用，因此有几个使用运行时PM的驱动程序可能会使系统进入可以获得更深省电选项的状态。
 
@@ -96,6 +99,7 @@ or removal (for PCMCIA, MMC/SD, USB, and so on).
 硬件唤醒事件包括，来自实时时钟的警报，网络LAN唤醒数据包，键盘或鼠标活动以及媒体插入或移除（用于PCMCIA，MMC / SD，USB等）。
 
 Interfaces for Entering System Sleep States
+进入系统睡眠状态的接口
 ===========================================
 There are programming interfaces provided for subsystems (bus type, device type,
 device class) and device drivers to allow them to participate in the power
@@ -105,6 +109,7 @@ system sleep and runtime power management.
 以允许参与所关注设备的电源管理。这些接口涵盖系统睡眠和运行时电源管理。
 
 Device Power Management Operations
+设备功耗管理操作
 ----------------------------------
 Device power management operations, at the subsystem level as well as at the
 device driver level, are implemented by defining and populating objects of type
@@ -154,6 +159,7 @@ please refer directly to the source code for more information about it.
 它仅适用于实现系统睡眠功耗管理方法。因此，本文档中未对其进行描述，因此请直接参阅源代码以获取有关它的更多信息。
 
 Subsystem-Level Methods
+子系统级方法
 -----------------------
 The core methods to suspend and resume devices reside in struct dev_pm_ops
 pointed to by the ops member of struct dev_pm_domain, or by the pm member of
@@ -187,9 +193,9 @@ of system wakeup events (hardware signals that can force the system out of a
 sleep state).  These fields are initialized by bus or device driver code using
 device_set_wakeup_capable() and device_set_wakeup_enable(), defined in
 include/linux/pm_wakeup.h.
-驱动程序模型中的所有设备对象都包含控制系统唤醒事件处理的字段（可强制系统退出睡眠状态的硬件信号）。
-这些字段由总线或设备驱动程序代码初始化，使用device_set_wakeup_capable（）和device_set_wakeup_enable（），
-在include / linux / pm_wakeup.h中定义。
+驱动模型中的所有设备对象都包含控制系统唤醒事件处理的字段（可强制系统退出睡眠状态的硬件信号）。
+这些字段由总线或设备驱动程序代码使用device_set_wakeup_capable()和device_set_wakeup_enable()初始化，
+在include/linux/pm_wakeup.h中定义。
 
 The "power.can_wakeup" flag just records whether the device (and its driver) can
 physically support wakeup events.  The device_set_wakeup_capable() routine
@@ -199,10 +205,10 @@ its system wakeup mechanism and for notifying the PM core of system wakeup
 events signaled by the device.  This object is only present for wakeup-capable
 devices (i.e. devices whose "can_wakeup" flags are set) and is created (or
 removed) by device_set_wakeup_capable().
-“power.can_wakeup”标志仅记录设备（及其驱动程序）物理上是否支持唤醒事件。device_set_wakeup_capable（）
-例程会影响此标志。“power.wakeup”字段是指向struct wakeup_source类型的对象的指针，
-该对象用于控制设备是否应该使用其系统唤醒机制以及用于通知设备发出信号的系统唤醒事件的PM核心。
-该对象仅适用于具有唤醒功能的设备（即设置了“can_wakeup”标志的设备），并由device_set_wakeup_capable（）创建（或删除）。
+"power.can_wakeup"标志仅记录设备（及其驱动）物理上是否支持唤醒事件。函数device_set_wakeup_capable()
+会影响此标志。"power.wakeup"字段是指向struct wakeup_source类型的对象的指针，
+该对象用于控制设备是否应该使用其系统唤醒机制以及用于通知那些被设备发送了信号的系统唤醒事件的PM核心。
+该对象仅适用于具有唤醒功能的设备（即设置了“can_wakeup”标志的设备），并由device_set_wakeup_capable()创建（或删除）。
 
 Whether or not a device is capable of issuing wakeup events is a hardware
 matter, and the kernel is responsible for keeping track of it.  By contrast,
@@ -214,10 +220,10 @@ system wakeup.  This file is only present if the "power.wakeup" object exists
 for the given device and is created (or removed) along with that object, by
 device_set_wakeup_capable().  Reads from the file will return the corresponding
 string.
-设备是否能够发出唤醒事件是硬件问题，内核负责跟踪它。相比之下，具有唤醒功能的设备是否应该发出唤醒事件是一个策略决策，
-它由用户空间通过一个sysfs attribute管理：“power/wakeup”文件。 用户空间可以将字符串“enabled”或“disabled”写入其中，
-以分别指示设备是否应该发信号通知系统唤醒。仅当给定设备存在“power.wakeup”对象并且与device_set_wakeup_capable（）
-一起创建（或删除）该对象时，才会出现此文件。从文件中读取将返回相应的字符串。
+设备是否能够发出唤醒事件是硬件问题，内核负责跟踪它。相比之下，具有唤醒功能的设备是否应该发出唤醒事件则是一个策略决策，
+它由用户空间通过一个sysfs attribute管理："power/wakeup"文件。用户空间可以将字符串“enabled”或“disabled”写入其中，
+以分别指示设备是否应该发信号通知系统唤醒。仅当给定设备存在"power.wakeup"对象时才会出现此文件，该文件与"power.wakeup"对象
+被函数device_set_wakeup_capable()一起创建（或删除）。读该文件将返回相应的字符串。
 
 The "power/wakeup" file is supposed to contain the "disabled" string initially
 for the majority of devices; the major exceptions are power buttons, keyboards,
@@ -225,9 +231,9 @@ and Ethernet adapters whose WoL (wake-on-LAN) feature has been set up with
 ethtool.  It should also default to "enabled" for devices that don't generate
 wakeup requests on their own but merely forward wakeup requests from one bus to
 another (like PCI Express ports).
-“power/wakeup”文件应该初始为大多数设备的“禁用”字符串; 主要的例外是电源按钮，键盘和以太网适配器，
-其WoL（局域网唤醒）功能已使用ethtool设置。对于不自行生成唤醒请求的设备，它也应该默认为“启用”，
-而只是将唤醒请求从一个总线转发到另一个总线（如PCI Express端口）。
+"power/wakeup"文件应该为大多数设备初始化为"disbale"字符串; 主要的例外是电源按钮、键盘和以太网适配器，
+其WoL（局域网唤醒）功能已使用ethtool设置。对于不自行生成唤醒请求而只是将唤醒请求从一个总线转发
+到另一个总线（如PCI Express端口）的设备，也应该默认为"enabled"。
 
 The device_may_wakeup() routine returns true only if the "power.wakeup" object
 exists and the corresponding "power/wakeup" file contains the string "enabled".
@@ -237,8 +243,10 @@ mechanisms are enabled or disabled directly by drivers, they also should use
 device_may_wakeup() to decide what to do during a system sleep transition.
 Device drivers, however, are not supposed to call device_set_wakeup_enable()
 directly in any case.
-仅当“power.wakeup”对象存在且相应的“power/wakeup”文件包含字符串“enabled”时，
-device_may_wakeup（）例程才返回true。子系统使用此信息（如PCI总线类型代码）来查看是否启用设备的唤醒机制。 如果驱动程序直接启用或禁用设备唤醒机制，则它们还应使用device_may_wakeup（）来决定在系统睡眠转换期间要执行的操作。 但是，设备驱动程序不应该在任何情况下直接调用device_set_wakeup_enable（）。
+仅当"power.wakeup"对象存在且相应的"power/wakeup"文件包含字符串"enabled"时，函数device_may_wakeup()
+才返回true。子系统（如PCI总线类型代码）使用此信息来查看是否启用设备的唤醒机制。如果驱动程序直接启用或禁用
+设备唤醒机制，则它们还应使用device_may_wakeup()来决定在系统睡眠转换期间要执行的操作。但是，设备驱动程序
+在任何情况下都不应该直接调用函数device_set_wakeup_enable()。
 
 It ought to be noted that system wakeup is conceptually different from "remote
 wakeup" used by runtime power management, although it may be supported by the
@@ -249,6 +257,7 @@ be used to signal system wakeup events, depending on the hardware design.  On
 some systems it is impossible to trigger them from system sleep states.  In any
 case, remote wakeup should always be enabled for runtime power management for
 all devices and drivers that support it.
+
 
 /sys/devices/.../power/control files
 ------------------------------------
