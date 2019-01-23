@@ -3,25 +3,34 @@
 Pavel Machek <pavel@ucw.cz>
 
 If you want to trick swsusp/S3 into working, you might want to try:
+如果你想利用swsusp/S3做什么，你可能想尝试：
 
 * go with minimal config, turn off drivers like USB, AGP you don't
   really need
+  用最小配置，关闭你不需要的驱动，如USB，AGP
 
 * turn off APIC and preempt
+  关闭APIC和抢占
 
 * use ext2. At least it has working fsck. [If something seems to go
   wrong, force fsck when you have a chance]
+  使用ext2。至少它能fsck。[如果出现问题，请在有机会时强制fsck]
 
 * turn off modules
+  关闭模块
 
 * use vga text console, shut down X. [If you really want X, you might
   want to try vesafb later]
+  使用VGA文本控制台，关闭X系统。[如果你确实需要X，之后你可能会想试试vesafb]
 
 * try running as few processes as possible, preferably go to single
   user mode.
+  尽可能少的运行进程，最好进入单用户模式。
 
 * due to video issues, swsusp should be easier to get working than
   S3. Try that first.
+  由于视频问题，swsusp应该比S3更容易工作。先尝试一下。
 
 When you make it work, try to find out what exactly was it that broke
 suspend, and preferably fix that.
+当你使它工作时，试着找出究竟是什么打破了挂起，并最好解决这个问题。
