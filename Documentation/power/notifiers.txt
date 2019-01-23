@@ -11,33 +11,46 @@ resume/restore, but they cannot do it by calling request_firmware() from their
 points).  The solution may be to load the firmware into memory before processes
 are frozen and upload it from there in the .resume() routine.
 A suspend/hibernation notifier may be used for this purpose.
+子系统和驱动可能想在休眠/挂起前或恢复后执行一些操作，但是需要系统具备完全的功能，所以驱动和
+子系统的回调函数.suspend()和.resume()或甚至.prepare()和.complete()都不适合。例如，设备驱动
+设备驱动可能想在恢复后上传固件到他们的设备，但是他们不能从他们的.resume()或.complete()代码路径
+中（此时用户进程已经被冻结了）通过调用函数request_firmware()来实现。解决方式可以是在进程冻结
+前加载固件到内存中，然后在.resume()代码路径中实现上传。
 
 The subsystems or drivers having such needs can register suspend notifiers that
 will be called upon the following events by the PM core:
+具有此类需求的子系统或驱动程序可以注册将由PM内核调用以下事件的挂起通知程序：
 
 PM_HIBERNATION_PREPARE	The system is going to hibernate, tasks will be frozen
 			immediately. This is different from PM_SUSPEND_PREPARE
 			below because here we do additional work between notifiers
 			and drivers freezing.
+	                系统将要休眠，任务会被立即冻结。这与下面的PM_SUSPEND_PREPARE不同，
+                        因为这里我们在notifiers和驱动程序冻结之间做了额外的工作。
 
 PM_POST_HIBERNATION	The system memory state has been restored from a
 			hibernation image or an error occurred during
 			hibernation.  Device drivers' restore callbacks have
 			been executed and tasks have been thawed.
+                        系统内存状态已从休眠镜像恢复或休眠期间发生错误。设备驱动程序的restore回调已执行，任务已解冻。
 
 PM_RESTORE_PREPARE	The system is going to restore a hibernation image.
 			If all goes well, the restored kernel will issue a
 			PM_POST_HIBERNATION notification.
+                        系统将恢复休眠镜像。如果一切顺利，恢复的内核将发出PM_POST_HIBERNATION通知。
 
 PM_POST_RESTORE		An error occurred during restore from hibernation.
 			Device drivers' restore callbacks have been executed
 			and tasks have been thawed.
+                        在从休眠中恢复时一个错误发生。设备驱动的restore回调已执行，任务已解冻。
 
 PM_SUSPEND_PREPARE	The system is preparing for suspend.
+                        系统在准备挂起。
 
 PM_POST_SUSPEND		The system has just resumed or an error occurred during
 			suspend.  Device drivers' resume callbacks have been
 			executed and tasks have been thawed.
+                        系统刚刚恢复或者在挂起时发生错误。设备驱动的resume回调已执行并且任务已解冻。
 
 It is generally assumed that whatever the notifiers do for
 PM_HIBERNATION_PREPARE, should be undone for PM_POST_HIBERNATION.  Analogously,
@@ -46,6 +59,10 @@ PM_POST_SUSPEND.  Additionally, all of the notifiers are called for
 PM_POST_HIBERNATION if one of them fails for PM_HIBERNATION_PREPARE, and
 all of the notifiers are called for PM_POST_SUSPEND if one of them fails for
 PM_SUSPEND_PREPARE.
+通常假设无论PM_HIBERNATION_PREPARE notifiers中执行什么操作，都应该在PM_POST_HIBERNATION notifiers中撤销。
+类似地，PM_SUSPEND_PREPARE中的操作应该在PM_POST_SUSPEND反操作。此外，如果任何一个针对
+PM_HIBERNATION_PREPARE的notifiers回调函数执行失败，则调用PM_POST_HIBERNATION通知，
+如果任何一个针对PM_POST_SUSPEND的notifiers回调函数执行失败，则调用PM_POST_SUSPEND通知。
 
 The hibernation and suspend notifiers are called with pm_mutex held.  They are
 defined in the usual way, but their last argument is meaningless (it is always
@@ -53,3 +70,7 @@ NULL).  To register and/or unregister a suspend notifier use the functions
 register_pm_notifier() and unregister_pm_notifier(), respectively, defined in
 include/linux/suspend.h .  If you don't need to unregister the notifier, you can
 also use the pm_notifier() macro defined in include/linux/suspend.h .
+休眠和挂起notifiers都是在锁pm_mutex持有时调用的。它们以通常的方式定义，但它们的最后一个参数
+没有意义（它总是为NULL）。要注册或注销 挂起notifiers，请分别使用include/linux/suspend.h中
+定义的函数register_pm_notifier()和unregister_pm_notifier()。如果您不需要注销notifier，
+也可以使用include/linux/suspend.h中定义的宏pm_notifier()。
