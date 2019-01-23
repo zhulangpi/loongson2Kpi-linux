@@ -5,23 +5,30 @@ The power management subsystem provides a unified sysfs interface to
 userspace, regardless of what architecture or platform one is
 running. The interface exists in /sys/power/ directory (assuming sysfs
 is mounted at /sys). 
+功耗管理子系统提供统一的sysfs接口给用户空间，不论架构与平台。接口存在于
+/sys/power/目录（假设sysfs挂载在/sys）。
 
 /sys/power/state controls system power state. Reading from this file
 returns what states are supported, which is hard-coded to 'freeze',
 'standby' (Power-On Suspend), 'mem' (Suspend-to-RAM), and 'disk'
+(Suspend-to-Disk). 
+/sys/power/state控制系统功耗状态。读该文件会返回支持的状态。这些状态硬编码为
+'freeze','standby' (Power-On Suspend), 'mem' (Suspend-to-RAM), and 'disk'
 (Suspend-to-Disk). 
 
 Writing to this file one of those strings causes the system to
 transition into that state. Please see the file
 Documentation/power/states.txt for a description of each of those
 states.
-
+写相应字符串到这个文件会触发系统转换。在Documentation/power/states.txt中有相应状态的描述。
 
 /sys/power/disk controls the operating mode of the suspend-to-disk
 mechanism. Suspend-to-disk can be handled in several ways. We have a
 few options for putting the system to sleep - using the platform driver
 (e.g. ACPI or other suspend_ops), powering off the system or rebooting the
 system (for testing).
+/sys/power/disk控制了STD机制的操作模式。STD可以被好几种方式处理。我们有几个选项让
+系统进入睡眠状态--使用平台驱动（例如ACPI或别的suspend_ops）、断电系统或重启系统（为了测试）。
 
 Additionally, /sys/power/disk can be used to turn on one of the two testing
 modes of the suspend-to-disk mechanism: 'testproc' or 'test'.  If the
@@ -33,13 +40,20 @@ to disable nonboot CPUs and freeze tasks, shrink memory, suspend devices, wait
 for 5 seconds, resume devices, unfreeze tasks and enable nonboot CPUs.  Then,
 we are able to look in the log messages and work out, for example, which code
 is being slow and which device drivers are misbehaving.
+此外，/sys/power/disk可以被用于打开两个STD机制的测试模式：testproc'或者'test'。
+如果STD机制是在'testproc'模式，写'disk'到/sys/power/state会引起内核失能非引导CPU、
+冻结任务、等待五秒、解冻任务最后使能非引导CPU。如果实在'test'模式，写'disk'到/sys/power/state
+会引起内核失能非引导CPU、冻结任务、收缩内存、挂起设备、等待5S、恢复设备、解冻任务最后使能非引导CPU。
+然后，我们可以观察log信息并检查，比如，哪些代码速度慢了或哪个驱动行为不当。
 
 Reading from this file will display all supported modes and the currently
 selected one in brackets, for example
+读该文件会显示所有支持的模式和用括号标记的当前选项，比如
 
 	[shutdown] reboot test testproc
 
 Writing to this file will accept one of
+该文件只接受以下的写
 
        'platform' (only if the platform supports it)
        'shutdown'
@@ -55,9 +69,14 @@ do its best to ensure the image size will not exceed that number.  However,
 if this turns out to be impossible, it will try to suspend anyway using the
 smallest image possible.  In particular, if "0" is written to this file, the
 suspend image will be as small as possible.
+/sys/power/image_size控制STD机制创建的镜像的大小。可以通过写入一个代表非负整数的字符串
+来设置镜像大小的上届，单位是字节。STD机制会尽可能的确保镜像大小不大于该数值。然而，如果不
+可避免的镜像大小将超过该数值，也会尽可能的使镜像保持最小。特别的，如果写入0，这代表镜像应该
+尽可能的小。
 
 Reading from this file will display the current image size limit, which
 is set to 2/5 of available RAM by default.
+读该文件会显示当前镜像大小限制，默认是可用RAM的2/5。
 
 /sys/power/pm_trace controls the code which saves the last PM event point in
 the RTC across reboots, so that you can debug a machine that just hangs
@@ -65,11 +84,15 @@ during suspend (or more commonly, during resume).  Namely, the RTC is only
 used to save the last PM event point if this file contains '1'.  Initially it
 contains '0' which may be changed to '1' by writing a string representing a
 nonzero integer into it.
+/sys/power/pm_trace用于控制保存重启时RTC中最后PM时间点的代码，以便于你可以在挂起时
+（更一般的，在恢复时）调试挂起的机器。
 
 To use this debugging feature you should attempt to suspend the machine, then
 reboot it and run
+为了使用这个调试特性，你应该试着挂起机器，然后重启并运行
 
 	dmesg -s 1000000 | grep 'hash matches'
 
 CAUTION: Using it will cause your machine's real-time (CMOS) clock to be
 set to a random invalid time after a resume.
+注意：使用它会导致机器的实时（CMOS）时钟在resume后被设置为一个随机的无效时间。
