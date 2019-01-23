@@ -165,6 +165,9 @@ from interfering with the suspending and resuming of devices.  A user space
 process running on a second CPU while we are suspending devices may, for
 example, be troublesome and without the freezing of tasks we would need some
 safeguards against race conditions that might occur in such a case.
+3.第三个原因是防止用户进程和一些内核线程干扰设备的挂起和恢复。例如，当我们挂起辅助CPU时，
+并且在没有冻结任务的情况下，上面运行的用户空间进程可能很麻烦，我们需要一些防止在这种情况下
+可能发生的竞争条件的保护措施。
 
 Although Linus Torvalds doesn't like the freezing of tasks, he said this in one
 of the discussions on LKML (http://lkml.org/lkml/2007/4/27/608):
@@ -178,9 +181,12 @@ s2ram with some devices in the middle of a DMA.  So we want to be able to
 avoid *that*, there's no question about that.  And I suspect that stopping
 user threads and then waiting for a sync is practically one of the easier
 ways to do so.
+我确实意识到IO请求队列问题，并且我们无法在某些设备处于DMA时执行s2ram。所以我们希望能够
+避免这种情况，毫无疑问。我怀疑停止用户线程然后等待同步是一种更简单的方法。
 
 So in practice, the 'at all' may become a 'why freeze kernel threads?' and
 freezing user threads I don't find really objectionable."
+所以实际上，问题可能演变为“为什么冻结内核线程”并且我并不是很排斥冻结用户进程。
 
 Still, there are kernel threads that may want to be freezable.  For example, if
 a kernel thread that belongs to a device driver accesses the device directly, it
@@ -189,6 +195,10 @@ to access it at that time.  However, if the kernel thread is freezable, it will
 be frozen before the driver's .suspend() callback is executed and it will be
 thawed after the driver's .resume() callback has run, so it won't be accessing
 the device while it's suspended.
+仍然有不少内核线程可能想被冻结。比如，如果属于某个直接访问设备的设备驱动的内核线程，原则上它需要
+知道设备什么时候挂起，以便于在那时该内核线程不去访问设备。然而，如果内核线程是可冻结的，它可能
+在驱动的回调函数.suspend()执行之前被冻结，在回调函数.resume()运行前被解冻，这样当挂起的时候
+它不会访问设备。
 
 4. Another reason for freezing tasks is to prevent user space processes from
 realizing that hibernation (or suspend) operation takes place.  Ideally, user
@@ -200,6 +210,11 @@ that depends on all CPUs being online while it's running.  Since we need to
 disable nonboot CPUs during the hibernation, if this process is not frozen, it
 may notice that the number of CPUs has changed and may start to work incorrectly
 because of that.
+4.另一个冻结任务的原因是防止用户进程意识到休眠（或挂起）操作发生了。理想上，用户进程不应该
+注意到这么一个系统级的操作发生，同时应该在恢复后（或从挂起恢复后）正常的继续运行。不幸的是，
+大部分情况下，除非冻结任务否则很难做到。例如，考虑一个在运行时依赖于所有CPU在线的进程。因为
+我们需要在休眠过程中失能非引导CPU，如果该进程不被冻结，它可能注意到CPU的数量改变了并因此开始
+变得不正常。
 
 V. Are there any problems related to the freezing of tasks?
 
@@ -210,6 +225,9 @@ on another.  For example, if kernel thread A waits for a completion (in the
 TASK_UNINTERRUPTIBLE state) that needs to be done by freezable kernel thread B
 and B is frozen in the meantime, then A will be blocked until B is thawed, which
 may be undesirable.  That's why kernel threads are not freezable by default.
+首先，冻结依赖于别的内核线程的内核线程必须很有技巧。例如，如果内核线程A等待一个完成量
+（在TASK_UNINTERRUPTIBLE状态），这个完成量需要可冻结的并且同时已经被冻结的内核线程B来完成，
+A就会被阻塞知道B被解冻，而这是并不是我们想要的。这就是为什么默认内核线程不被冻结。
 
 Second, there are the following two problems related to the freezing of user
 space processes:
@@ -218,12 +236,18 @@ space processes:
 userspace, it gets even more complicated because some userspace processes are
 now doing the sorts of things that kernel threads do
 (https://lists.linux-foundation.org/pipermail/linux-pm/2007-May/012309.html).
+其次，有以下两个涉及用户进程的问题：
+1.把进程置于不可打断的睡眠打乱了负载均衡
+2.既然我们有FUSE，加上在用户空间执行设备驱动的框架，由于一些用户进程在做很多内核线程做的事，
+问题会变得更复杂。
 
 The problem 1. seems to be fixable, although it hasn't been fixed so far.  The
 other one is more serious, but it seems that we can work around it by using
 hibernation (and suspend) notifiers (in that case, though, we won't be able to
 avoid the realization by the user space processes that the hibernation is taking
 place).
+问题1.似乎是可以修复的，尽管到目前为止还没有修复。另一个问题看起来更严重，但似乎我们可以通过
+使用休眠（和挂起）通知来解决它（尽管在这种情况下，我们无法通过用户进程来避免实现，因为休眠正在发生）。
 
 There are also problems that the freezing of tasks tends to expose, although
 they are not directly related to it.  For example, if request_firmware() is
@@ -235,12 +259,20 @@ only through another device that hasn't been resumed yet.  In that case,
 request_firmware() will fail regardless of whether or not the freezing of tasks
 is used.  Consequently, the problem is not really related to the freezing of
 tasks, since it generally exists anyway.
+任务冻结还有别的问题可能暴露，尽管并不直接相关。例如，如果函数request_firmware()在设备驱动
+的.resume()路径中被调用，它将超时并失败，因为应该回复请求的用户进程此时是被冻结的。所以，看
+起来，失败的原因时任务被冻结了。然而，假设固件位于只能通过尚未恢复的设备访问的文件系统上。此时，
+不管任务冻结是否被使用，函数request_firmware()都将失败。因此，问题与冻结任务无关，因为它通常
+一直存在。
 
 A driver must have all firmwares it may need in RAM before suspend() is called.
 If keeping them is not practical, for example due to their size, they must be
 requested early enough using the suspend notifier API described in notifiers.txt.
+在调用suspend()之前，驱动程序必须把所有可能需要的固件保证在RAM中。如果保留它们是不切实际的，
+例如由于它们的大小，必须使用notifiers.txt中描述的suspend notifier API尽早请求它们。
 
 VI. Are there any precautions to be taken to prevent freezing failures?
+    是否有任何预防措施来防止冻结失败？
 
 Yes, there are.
 
@@ -249,6 +281,8 @@ from system-wide sleep such as suspend/hibernation is not encouraged.
 If possible, that piece of code must instead hook onto the suspend/hibernation
 notifiers to achieve mutual exclusion. Look at the CPU-Hotplug code
 (kernel/cpu.c) for an example.
+首先，不鼓励获取'pm mutex'锁来互斥系统级睡眠（例如，挂起/休眠）的部分代码。
+如果可能，那段代码必须挂钩到挂起/休眠notifier上以实现互斥。参考CPU热插拔的代码（kernel/cpu.c）
 
 However, if that is not feasible, and grabbing 'pm_mutex' is deemed necessary,
 it is strongly discouraged to directly call mutex_[un]lock(&pm_mutex) since
@@ -257,6 +291,9 @@ successfully acquired the 'pm_mutex' lock, and hence that other entity failed
 to acquire the lock, then that task would get blocked in TASK_UNINTERRUPTIBLE
 state. As a consequence, the freezer would not be able to freeze that task,
 leading to freezing failure.
+但是，如果这不可行，并且认为有必要获取锁'pm_mutex'，则强烈建议不要直接调用mutex_[un]lock(＆pm_mutex)，
+因为这可能导致冻结失败。因为如果挂起/休眠代码成功获取了'pm_mutex'锁，其他实体将无法获取锁，那么
+该任务将被阻塞在TASK_UNINTERRUPTIBLE状态下。
 
 However, the [un]lock_system_sleep() APIs are safe to use in this scenario,
 since they ask the freezer to skip freezing this task, since it is anyway
@@ -264,8 +301,13 @@ since they ask the freezer to skip freezing this task, since it is anyway
 only after the entire suspend/hibernation sequence is complete.
 So, to summarize, use [un]lock_system_sleep() instead of directly using
 mutex_[un]lock(&pm_mutex). That would prevent freezing failures.
+但是，[un]lock_system_sleep() API在这种情况下可以安全使用，因为它们要求冻结器跳过冻结此任务，
+因为该任务阻塞在锁“pm_mutex”上，所以可以被认为是“充分冻结的”，该锁仅在整个挂起/休眠完成后才被释放。因此，
+总而言之，使用[un]lock_system_sleep()而不是直接使用mutex_[un]lock(&pm_mutex)。这样可以防止冻结失败。
 
 V. Miscellaneous
 /sys/power/pm_freeze_timeout controls how long it will cost at most to freeze
 all user space processes or all freezable kernel threads, in unit of millisecond.
 The default value is 20000, with range of unsigned integer.
+/sys/power/pm_freeze_timeout控制冻结所有用户空间进程或所有可冻结内核线程的最大时间限制，
+以毫秒为单位。默认值为20000，范围为无符号整数。
