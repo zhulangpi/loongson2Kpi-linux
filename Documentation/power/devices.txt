@@ -257,7 +257,10 @@ be used to signal system wakeup events, depending on the hardware design.  On
 some systems it is impossible to trigger them from system sleep states.  In any
 case, remote wakeup should always be enabled for runtime power management for
 all devices and drivers that support it.
-
+应该注意的是，系统唤醒在概念上与运行时电源管理所使用的“远程唤醒”不同，尽管它可能由相同的物理机制支持。
+远程唤醒功能允许处于低功耗状态的器件触发特定中断，以指示应将其置于全功率状态。这些中断可能用于给系统唤醒
+事件信号，也可能不，取决于硬件设计。在某些系统上，从系统睡眠状态触发它们是不可能的。在任何情况下，应始终
+为所有支持的设备和驱动程序启用远程唤醒以进行运行时电源管理。
 
 /sys/devices/.../power/control files
 ------------------------------------
@@ -265,6 +268,9 @@ Each device in the driver model has a flag to control whether it is subject to
 runtime power management.  This flag, called runtime_auto, is initialized by the
 bus type (or generally subsystem) code using pm_runtime_allow() or
 pm_runtime_forbid(); the default is to allow runtime power management.
+驱动模型中的每个设备都有一个标志位来控制是否受运行时功耗管理影响。这个标志位叫做"runtime_auto"，
+由总线类型（或一般子系统）代码使用函数pm_runtime_allow()或pm_runtime_forbid()来初始化。
+默认是允许的。
 
 The setting can be adjusted by user space by writing either "on" or "auto" to
 the device's power/control sysfs file.  Writing "auto" calls pm_runtime_allow(),
@@ -273,47 +279,64 @@ driver.  Writing "on" calls pm_runtime_forbid(), clearing the flag, returning
 the device to full power if it was in a low-power state, and preventing the
 device from being runtime power-managed.  User space can check the current value
 of the runtime_auto flag by reading the file.
+设置可以通过在用户空间写"on"或"auto"到设备的power/control文件来调节。写"auto"会调用函数
+pm_runtime_allow()，设置标志位并允许设备被驱动以运行时功耗管理模式管理。写"on"会调用函数
+pm_runtime_forbid()，清楚标志位，如果设备处在低功耗状态会返回到全功率模式并且设备不会被运行时
+功耗管理模式管理。用户空间可以通过读该文件检查当前的设置。
 
 The device's runtime_auto flag has no effect on the handling of system-wide
 power transitions.  In particular, the device can (and in the majority of cases
 should and will) be put into a low-power state during a system-wide transition
 to a sleep state even though its runtime_auto flag is clear.
+设备的"runtime_auto"标志位对处理系统级功耗转换没有影响。特别地，即使其"runtime_auto"标志是清除的，
+该设备也可以（并且在大多数情况下应该和将要）在转换到睡眠状态的系统级功耗转换期间进入低功率状态。
 
 For more information about the runtime power management framework, refer to
 Documentation/power/runtime_pm.txt.
-
+参考Documentation/power/runtime_pm.txt以获取更多关于运行时功耗管理框架的信息。
 
 Calling Drivers to Enter and Leave System Sleep States
+调用驱动程序来进入或退出系统睡眠状态
 ======================================================
 When the system goes into a sleep state, each device's driver is asked to
 suspend the device by putting it into a state compatible with the target
 system state.  That's usually some version of "off", but the details are
 system-specific.  Also, wakeup-enabled devices will usually stay partly
 functional in order to wake the system.
+当系统进入睡眠状态时，要求每个设备的驱动程序通过将其置于与目标系统状态兼容的状态来挂起设备。
+这通常是"off"的某个版本，但细节是系统特定的。此外，启用唤醒功能的设备通常会保持部分功能以唤醒系统。
 
 When the system leaves that low-power state, the device's driver is asked to
 resume it by returning it to full power.  The suspend and resume operations
 always go together, and both are multi-phase operations.
+当系统退出低功耗状态时，要求设备的驱动程序通过将其返回到全功率状态来恢复设备。挂起和恢复总是一起的，
+并且都是多阶段的操作。
 
 For simple drivers, suspend might quiesce the device using class code
 and then turn its hardware as "off" as possible during suspend_noirq.  The
 matching resume calls would then completely reinitialize the hardware
 before reactivating its class I/O queues.
+对于一些简单的驱动，挂起可能会使用class代码来静默设备然后在"suspend_noirq"期间尽可能的把硬件置于"off"。
+对应的恢复调用会在重新激活其class I/O队列前完全重新初始化硬件。
 
 More power-aware drivers might prepare the devices for triggering system wakeup
 events.
-
+更多功耗感知驱动程序可能会准备设备以触发系统唤醒事件。
 
 Call Sequence Guarantees
+调用序列的保证
 ------------------------
 To ensure that bridges and similar links needing to talk to a device are
 available when the device is suspended or resumed, the device tree is
 walked in a bottom-up order to suspend devices.  A top-down order is
 used to resume those devices.
+为了确保在设备挂起或恢复时需要与设备通信的网桥和类似链路可用，设备树以自下而上的顺序挂起设备，
+自上而下的顺序恢复这些设备。
 
 The ordering of the device tree is defined by the order in which devices
 get registered:  a child can never be registered, probed or resumed before
 its parent; and can't be removed or suspended after that parent.
+设备树的排序由设备注册的顺序决定：子女永远不能在其父母之前注册、探查或恢复; 并且不能在父母之后被移除或挂起。
 
 The policy is that the device tree should match hardware bus topology.
 (Or at least the control bus, for devices which use multiple busses.)
@@ -322,9 +345,12 @@ the device is suspending (i.e. has been chosen by the PM core as the next
 device to suspend) or has already suspended, as well as after all of the other
 devices have been suspended.  Device drivers must be prepared to cope with such
 situations.
-
+策略是设备树应匹配硬件总线拓扑。（对于使用多个总线的设备，至少应匹配控制总线。）特别是，这意味着如果
+设备的父设备正在挂起（即已被PM核心选择作为下一个要挂起的设备）或已经挂起，以及在所有其他设备被暂停之后，
+设备注册可能会失败。设备驱动程序必须准备好应对这种情况。
 
 System Power Management Phases
+系统功耗管理阶段
 ------------------------------
 Suspending or resuming the system is done in several phases.  Different phases
 are used for freeze, standby, and memory sleep states ("suspend-to-RAM") and the
@@ -334,6 +360,10 @@ support all these callbacks and not all drivers use all the callbacks.  The
 various phases always run after tasks have been frozen and before they are
 unfrozen.  Furthermore, the *_noirq phases run at a time when IRQ handlers have
 been disabled (except for those marked with the IRQF_NO_SUSPEND flag).
+挂起或恢复系统分成几个阶段。不同的阶段被用于冻结，待机和内存睡眠状态（STR）和休眠状态（STD）。
+每个阶段都涉及到在下一个阶段开始之前为每个设备执行相应的回调函数。并非所有的总线或类都支持所有这些回调，
+并非所有驱动程序都使用所有回调。在任务冻结之后和解冻之前，各个阶段始终运行。此外，*_noirq阶段在IRQ处理
+程序被禁用时运行（除了标有IRQF_NO_SUSPEND标志的那些）。
 
 All phases use PM domain, bus, type, class or driver callbacks (that is, methods
 defined in dev->pm_domain->ops, dev->bus->pm, dev->type->pm, dev->class->pm or
@@ -342,34 +372,46 @@ exclusive.  Moreover, PM domain callbacks always take precedence over all of the
 other callbacks and, for example, type callbacks take precedence over bus, class
 and driver callbacks.  To be precise, the following rules are used to determine
 which callback to execute in the given phase:
+所有阶段都使用PM域、总线、类型、类或驱动程序回调（即，在dev->pm_domain->ops, dev-> bus->pm, 
+dev->type->pm, dev->class-pm 或 dev->driver->pm 中定义的方法）。这些回调被PM核心视为互斥的
+（只执行其中的一个）。此外，PM域回调始终优先于所有其他回调，例如，类型回调优先于总线、类和驱动程序回调。
+确切地说，以下规则用于确定在给定阶段中要执行的回调：
 
     1.	If dev->pm_domain is present, the PM core will choose the callback
 	included in dev->pm_domain->ops for execution
+        如果dev->pm_domain存在，PM核心会执行dev->pm_domain->ops。
 
     2.	Otherwise, if both dev->type and dev->type->pm are present, the callback
 	included in dev->type->pm will be chosen for execution.
+        否则，如果dev->type和dev->type->pm都存在，执行dev->type->pm。
 
     3.	Otherwise, if both dev->class and dev->class->pm are present, the
 	callback included in dev->class->pm will be chosen for execution.
+        否则，如果dev->class和dev->class->pm都存在，执行dev->class->pm。
 
     4.	Otherwise, if both dev->bus and dev->bus->pm are present, the callback
 	included in dev->bus->pm will be chosen for execution.
+        否则，如果both dev->bus和dev->bus->pm都存在，执行dev->bus->pm。
 
 This allows PM domains and device types to override callbacks provided by bus
 types or device classes if necessary.
+这允许PM域和设备类型在必要时覆盖由总线类型或设备类提供的回调。
 
 The PM domain, type, class and bus callbacks may in turn invoke device- or
 driver-specific methods stored in dev->driver->pm, but they don't have to do
 that.
+PM域，类型，类和总线回调可以依次调用存储在dev->driver->pm中的特定于设备或驱动程序的方法，但它们不必这样做。
 
 If the subsystem callback chosen for execution is not present, the PM core will
 execute the corresponding method from dev->driver->pm instead if there is one.
-
+如果选择执行的子系统回调不存在，则PM核心将从dev->driver->pm执行相应的方法，如果有的话。
 
 Entering System Suspend
+进入系统挂起
 -----------------------
 When the system goes into the freeze, standby or memory sleep state,
 the phases are:
+当系统进入freeze, standby or memory sleep状态时，相应的阶段为：
 
 		prepare, suspend, suspend_late, suspend_noirq.
 
@@ -379,27 +421,38 @@ the phases are:
 	registered at will.  (By contrast, devices may be unregistered at any
 	time.)  Unlike the other suspend-related phases, during the prepare
 	phase the device tree is traversed top-down.
+        准备阶段旨在通过阻止新设备进行注册来防止竞争; 如果新的孩子设备可以随意注册，PM核心永远
+        不会知道是否设备的所有孩子设备都被暂停了。（相比之下，设备可能在任何时候都未注册。）与其他
+        挂起相关的阶段不同，在准备阶段，设备树自上而下遍历。
 
 	After the prepare callback method returns, no new children may be
 	registered below the device.  The method may also prepare the device or
 	driver in some way for the upcoming system power transition, but it
 	should not put the device into a low-power state.
+        在准备阶段的回调方法返回后，设备的孩子设备不再能注册。该方法还可以以某种方式为即将到来
+        的系统功耗转换准备设备或驱动器，但是它不应该使设备进入低功率状态。
 
     2.	The suspend methods should quiesce the device to stop it from performing
 	I/O.  They also may save the device registers and put it into the
 	appropriate low-power state, depending on the bus type the device is on,
 	and they may enable wakeup events.
+        挂起方法应该静默设备来组织设备执行I/O。它们还可以保存器件寄存器并将其置于适当的低功耗状态，
+        具体取决于器件所在的总线类型，并且它们可以启用唤醒事件。
 
     3	For a number of devices it is convenient to split suspend into the
 	"quiesce device" and "save device state" phases, in which cases
 	suspend_late is meant to do the latter.  It is always executed after
 	runtime power management has been disabled for all devices.
+        对于许多设备来说，把挂起过程划分为“静默设备”和“保存设备状态”两个阶段是很方便的，
+        在这种情况下，suspend_late意味着执行后者。在为所有设备禁用运行时电源管理后，始终执行该操作。
 
     4.	The suspend_noirq phase occurs after IRQ handlers have been disabled,
 	which means that the driver's interrupt handler will not be called while
 	the callback method is running.  The methods should save the values of
 	the device's registers that weren't saved previously and finally put the
 	device into the appropriate low-power state.
+        "suspend_noirq"阶段发生在IRQ处理函数被失能之后，这意味着在该阶段回调方法运行时，驱动的
+        中断处理函数不会被调用。回调方法应该保存之前没有保存的设备寄存器的值，并最终将设备置于合适的低功耗状态。
 
 	The majority of subsystems and device drivers need not implement this
 	callback.  However, bus types allowing devices to share interrupt
@@ -407,6 +460,8 @@ the phases are:
 	an error during the suspend phase by fielding a shared interrupt
 	generated by some other device after its own device had been set to low
 	power.
+        大多数子系统和设备驱动程序无需实现此回调。但是，允许设备共享中断向量的总线类型，如PCI，通常需要它;
+        否则，驱动程序可能会在挂起阶段遇到错误，错误原因是在其自身设备设置为低功耗后部署其他设备生成的共享中断。
 
 At the end of these phases, drivers should have stopped all I/O transactions
 (DMA, IRQs), saved enough state that they can re-initialize or restore previous
@@ -414,21 +469,30 @@ state (as needed by the hardware), and placed the device into a low-power state.
 On many platforms they will gate off one or more clock sources; sometimes they
 will also switch off power supplies or reduce voltages.  (Drivers supporting
 runtime PM may already have performed some or all of these steps.)
+在这些阶段结束时，驱动程序应该已经停止所有I/O事务（DMA，IRQ），保存足够的状态以便设备可以重新
+初始化或恢复以前的状态（根据硬件的需要），并将设备置于低功耗模式。在许多平台上，他们将关闭一个或
+多个时钟源;有时它们也会关闭电源或降低电压。（支持运行时PM的驱动程序可能已经执行了部分或全部步骤。）
 
 If device_may_wakeup(dev) returns true, the device should be prepared for
 generating hardware wakeup signals to trigger a system wakeup event when the
 system is in the sleep state.  For example, enable_irq_wake() might identify
 GPIO signals hooked up to a switch or other external hardware, and
 pci_enable_wake() does something similar for the PCI PME signal.
+如果函数device_may_wakeup(dev)返回true，则设备应准备好生成硬件唤醒信号，以在系统处于
+睡眠状态时触发系统唤醒事件。例如，函数enable_irq_wake()可能会识别连接到交换机或其他外部
+硬件的GPIO信号，而pci_enable_wake()会对PCI PME信号执行类似的操作。
 
 If any of these callbacks returns an error, the system won't enter the desired
 low-power state.  Instead the PM core will unwind its actions by resuming all
 the devices that were suspended.
-
+任何回调返回错误将导致系统不会进入到指定低功耗状态。取而代之，PM核心会通过恢复所有挂起的设备
+来解除操作。
 
 Leaving System Suspend
+退出系统挂起
 ----------------------
 When resuming from freeze, standby or memory sleep, the phases are:
+当从freeze, standby 或 memory sleep中恢复时，所有阶段是
 
 		resume_noirq, resume_early, resume, complete.
 
@@ -439,25 +503,36 @@ When resuming from freeze, standby or memory sleep, the phases are:
 	bring the device and its driver into a state in which the driver can
 	recognize if the device is the source of incoming interrupts, if any,
 	and handle them correctly.
+        resume_noirq回调方法应该执行在驱动程序的中断处理程序被调用之前所需的操作。这通常
+        意味着撤消suspend_noirq阶段的操作。如果总线类型允许设备共享中断向量（如PCI），则
+        回调方法应使设备及其驱动程序进入到可以识别设备是否为中断源（如果有）并正确处理的状态，。
 
 	For example, the PCI bus type's ->pm.resume_noirq() puts the device into
 	the full-power state (D0 in the PCI terminology) and restores the
 	standard configuration registers of the device.  Then it calls the
 	device driver's ->pm.resume_noirq() method to perform device-specific
 	actions.
+        例如，PCI总线类型的->pm.resume_noirq()将器件置于全功率状态（PCI术语中的D0）并恢复器件的
+        标准配置寄存器。然后它调用设备驱动程序的->pm.resume_noirq()方法来执行特定于设备的操作。
 
     2.	The resume_early methods should prepare devices for the execution of
 	the resume methods.  This generally involves undoing the actions of the
 	preceding suspend_late phase.
+        resume_early方法应该用于为设备的resume方法的执行做准备。
+        这通常涉及撤消前一个suspend_late阶段的动作。
 
     3	The resume methods should bring the the device back to its operating
 	state, so that it can perform normal I/O.  This generally involves
 	undoing the actions of the suspend phase.
+        恢复方法应该使设备恢复其运行状态，以便它可以执行正常的I/O。
+        这通常涉及撤消suspend阶段的动作。
 
     4.	The complete phase should undo the actions of the prepare phase.  Note,
 	however, that new children may be registered below the device as soon as
 	the resume callbacks occur; it's not necessary to wait until the
 	complete phase.
+        complete阶段应该撤消准备阶段的动作。但请注意，只要resume回调发生了，新的子设备就可以
+        在设备下注册; 没有必要等到complete阶段。
 
 At the end of these phases, drivers should be as functional as they were before
 suspending: I/O can be performed using DMA and IRQs, and the relevant clocks are
@@ -465,12 +540,17 @@ gated on.  Even if the device was in a low-power state before the system sleep
 because of runtime power management, afterwards it should be back in its
 full-power state.  There are multiple reasons why it's best to do this; they are
 discussed in more detail in Documentation/power/runtime_pm.txt.
+在这些阶段结束时，驱动程序应该具备像挂起之前一样功能：I/O可以执行DMA和IRQ，并且相关的时钟被打开。
+即使设备在系统休眠之前由于运行时电源管理而处于低功耗状态，之后它也应该恢复到全功率状态。为什么最好
+这样做有很多原因; 在Documentation/power/runtime_pm.txt中更详细地进行了讨论。
 
 However, the details here may again be platform-specific.  For example,
 some systems support multiple "run" states, and the mode in effect at
 the end of resume might not be the one which preceded suspension.
 That means availability of certain clocks or power supplies changed,
 which could easily affect how a driver works.
+但是，此处的细节可能是特定于平台的。例如，某些系统支持多个"run"状态，并且在恢复时生效的
+模式可能不是挂起之前的模式。这意味着某些时钟或电源的可用性发生了变化，这很容易影响到驱动。
 
 Drivers need to be able to handle hardware which has been reset since the
 suspend methods were called, for example by complete reinitialization.
@@ -478,6 +558,9 @@ This may be the hardest part, and the one most protected by NDA'd documents
 and chip errata.  It's simplest if the hardware state hasn't changed since
 the suspend was carried out, but that can't be guaranteed (in fact, it usually
 is not the case).
+驱动程序需要能处理挂起方法被调用以来已重置的硬件，例如通过完全重新初始化。这可能是最难的部分，
+也是最受NDA文档和芯片勘误表保护的部分。如果硬件状态自执行挂起以来没有改变，那么这是最简单的，
+但这是无法保证的（事实上，通常情况并非如此）。
 
 Drivers must also be prepared to notice that the device has been removed
 while the system was powered down, whenever that's physically possible.
@@ -485,90 +568,121 @@ PCMCIA, MMC, USB, Firewire, SCSI, and even IDE are common examples of busses
 where common Linux platforms will see such removal.  Details of how drivers
 will notice and handle such removals are currently bus-specific, and often
 involve a separate thread.
+驱动程序还必须准备好注意在系统断电时已移除的设备，只要移除在物理上是可行的。PCMCIA，MMC，USB，Firewire，SCSI
+甚至IDE都是常见的总线示例，常见的Linux平台会看到这种移除。驱动程序将如何注意和处理此类移除的细节目前是特定于总线的，
+并且通常涉及单独的线程。
 
 These callbacks may return an error value, but the PM core will ignore such
 errors since there's nothing it can do about them other than printing them in
 the system log.
-
+这些回调可能会返回一个错误值，但PM内核会忽略这些错误，因为除了在系统日志中打印它们之外，没有什么可以做的。
 
 Entering Hibernation
+进入休眠
 --------------------
 Hibernating the system is more complicated than putting it into the other
 sleep states, because it involves creating and saving a system image.
 Therefore there are more phases for hibernation, with a different set of
 callbacks.  These phases always run after tasks have been frozen and memory has
 been freed.
+休眠系统比将其置于其他睡眠状态更复杂，因为它涉及创建和保存系统映像。因此，休眠有更多阶段，
+并具有不同的回调集。这些阶段总是在任务被冻结且内存被释放后运行。
 
 The general procedure for hibernation is to quiesce all devices (freeze), create
 an image of the system memory while everything is stable, reactivate all
 devices (thaw), write the image to permanent storage, and finally shut down the
 system (poweroff).  The phases used to accomplish this are:
+休眠的一般过程是静默所有设备（冻结），在一切稳定时创建系统内存镜像，重新激活所有设备（解冻），
+将镜像写入非易失存储器，最后关闭系统（断电）。用于实现此目的的阶段是：
 
-	prepare, freeze, freeze_late, freeze_noirq, thaw_noirq, thaw_early,
-	thaw, complete, prepare, poweroff, poweroff_late, poweroff_noirq
+	prepare, freeze, freeze_late, freeze_noirq, 
+        thaw_noirq, thaw_early,thaw, complete, 
+        prepare, poweroff, poweroff_late, poweroff_noirq
 
     1.	The prepare phase is discussed in the "Entering System Suspend" section
 	above.
+        prepare阶段在上面的章节“进入系统挂起”已经讨论了。
 
     2.	The freeze methods should quiesce the device so that it doesn't generate
 	IRQs or DMA, and they may need to save the values of device registers.
 	However the device does not have to be put in a low-power state, and to
 	save time it's best not to do so.  Also, the device should not be
 	prepared to generate wakeup events.
+        freeze阶段的回调方法应使设备静默，以便它不会生成IRQ或DMA，并且它们可能需要保存设备寄存器的值。
+        但是，该设备不必处于低功耗状态，为了节省时间也最好不要这样做。此外，设备不应准备生成唤醒事件。
 
     3.	The freeze_late phase is analogous to the suspend_late phase described
 	above, except that the device should not be put in a low-power state and
 	should not be allowed to generate wakeup events by it.
+        freeze_late阶段类似于上面描述的suspend_late阶段，不同之处在于，设备不应处于低功耗状态，
+        并且不应该被允许产生唤醒事件。
 
     4.	The freeze_noirq phase is analogous to the suspend_noirq phase discussed
 	above, except again that the device should not be put in a low-power
 	state and should not be allowed to generate wakeup events.
+        freeze_noirq阶段类似于上面讨论的suspend_noirq阶段，除了设备不应该被置于低功耗状态并且不应该被允许产生唤醒事件。
 
 At this point the system image is created.  All devices should be inactive and
 the contents of memory should remain undisturbed while this happens, so that the
 image forms an atomic snapshot of the system state.
+此时，系统镜像已创建。所有设备都应处于非活动状态，并且内存的内容应保持不受干扰，以便形成系统状态的原子快照。
 
     5.	The thaw_noirq phase is analogous to the resume_noirq phase discussed
 	above.  The main difference is that its methods can assume the device is
 	in the same state as at the end of the freeze_noirq phase.
+        thaw_noirq阶段类似于上面讨论的resume_noirq阶段。主要区别在于其回调方法可以假设设备
+        处于与freeze_noirq阶段结束时相同的状态（不处于低功耗状态并且不允许产生唤醒事件）。
 
     6.	The thaw_early phase is analogous to the resume_early phase described
 	above.  Its methods should undo the actions of the preceding
 	freeze_late, if necessary.
+        thaw_early阶段类似于上述resume_early阶段。如有必要，其回调方法应撤消前面的freeze_late的操作。
 
     7.	The thaw phase is analogous to the resume phase discussed above.  Its
 	methods should bring the device back to an operating state, so that it
 	can be used for saving the image if necessary.
+        thaw阶段类似于上面讨论的resume阶段。其回调方法应使设备恢复运行状态，以便在必要时可用于保存图像。
 
     8.	The complete phase is discussed in the "Leaving System Suspend" section
 	above.
+        complete阶段在上面的“退出系统挂起”章节中已讨论。
 
 At this point the system image is saved, and the devices then need to be
 prepared for the upcoming system shutdown.  This is much like suspending them
 before putting the system into the freeze, standby or memory sleep state,
 and the phases are similar.
+此时，系统镜像已经被保存，设备需要准备即将到来的系统关闭。这类似于将系统置于freeze, standby或memory sleep
+状态前挂起设备并且所经过的阶段类似。
 
     9.	The prepare phase is discussed above.
+        prepare阶段已讨论。
 
     10.	The poweroff phase is analogous to the suspend phase.
+        poweroff阶段类似于suspend阶段。
 
     11.	The poweroff_late phase is analogous to the suspend_late phase.
+        poweroff_late阶段类似于suspend_late阶段。
 
     12.	The poweroff_noirq phase is analogous to the suspend_noirq phase.
+        poweroff_noirq阶段类似于suspend_noirq阶段。
 
 The poweroff, poweroff_late and poweroff_noirq callbacks should do essentially
 the same things as the suspend, suspend_late and suspend_noirq callbacks,
 respectively.  The only notable difference is that they need not store the
 device register values, because the registers should already have been stored
 during the freeze, freeze_late or freeze_noirq phases.
-
+poweroff，poweroff_late和poweroff_noirq阶段的回调方法应该分别与suspend，suspend_late和suspend_noirq阶段
+的回调方法基本相同。唯一值得注意的区别是它们不需要存储设备寄存器值，因为寄存器应该已经在freeze，freeze_late或freeze_noirq阶段存储。
 
 Leaving Hibernation
+退出休眠
 -------------------
 Resuming from hibernation is, again, more complicated than resuming from a sleep
 state in which the contents of main memory are preserved, because it requires
 a system image to be loaded into memory and the pre-hibernation memory contents
 to be restored before control can be passed back to the image kernel.
+从休眠状态恢复同样比从保持主存储器内容的sleep状态恢复更复杂，因为它需要将系统镜像加载到存储器中
+并且需要在将控制权传递回镜像内核之前恢复预休眠存储器内容。
 
 Although in principle, the image might be loaded into memory and the
 pre-hibernation memory contents restored by the boot loader, in practice this
@@ -581,6 +695,11 @@ control to the image kernel.  Thus two different kernels are involved in
 resuming from hibernation.  In fact, the boot kernel may be completely different
 from the image kernel: a different configuration and even a different version.
 This has important consequences for device drivers and their subsystems.
+尽管原则上，镜像可以被加载到存储器中，并且预休眠存储器内容由bootloader恢复，但实际上这是无法完成的，
+因为启动加载器不够智能且没有建立好的协议来传递必要的信息。所以，取而代之，bootloader将一个新的内核实例
+（称为引导内核）加载到内存中，并以通常的方式将控制权传递给它。然后，引导内核读取系统镜像，恢复预休眠内存内存并
+传递控制权给镜像内核。所以休眠涉及到两个不同的内核。实际上，引导内核可能完全不同于镜像内核:
+不同的配置，甚至是不同的版本。这对设备驱动程序及其子系统具有重要影响。
 
 To be able to load the system image into memory, the boot kernel needs to
 include at least a subset of device drivers allowing it to access the storage
@@ -592,6 +711,10 @@ creating a system image, and it is accomplished in the same way, using prepare,
 freeze, and freeze_noirq phases.  However the devices affected by these phases
 are only those having drivers in the boot kernel; other devices will still be in
 whatever state the boot loader left them.
+为了能够将系统镜像加载到内存中，引导内核需要至少包含一部分设备驱动程序，以允许它访问包含镜像的存储介质，
+尽管它不需要包含存在于镜像内核中的所有驱动程序。加载镜像后，由引导内核管理的设备需要准备将控制权传递回镜像内核。
+这与创建系统镜像时的初始步骤非常相似，并且使用相同的方式完成--使用prepare，freeze和freeze_noirq阶段。
+但是受这些阶段影响的设备只是那些在引导内核中有驱动程序的设备;其他设备仍将处于bootloader退出时处于的状态。
 
 Should the restoration of the pre-hibernation memory contents fail, the boot
 kernel would go through the "thawing" procedure described above, using the
@@ -599,20 +722,26 @@ thaw_noirq, thaw, and complete phases, and then continue running normally.  This
 happens only rarely.  Most often the pre-hibernation memory contents are
 restored successfully and control is passed to the image kernel, which then
 becomes responsible for bringing the system back to the working state.
+如果恢复预休眠存储器内容失败，则引导内核将使用thaw_noirq，thaw和complete经历上述“解冻”过程，然后继续正常运行。 这很少发生。 大多数情况下，预休眠存储器内容被成功恢复，并且控制被传递到图像内核，然后图像内核负责使系统返回工作状态。
 
 To achieve this, the image kernel must restore the devices' pre-hibernation
 functionality.  The operation is much like waking up from the memory sleep
 state, although it involves different phases:
+为实现此目的，镜像内核必须恢复设备的休眠前功能。该操作很像从内存休眠状态唤醒，虽然它涉及不同的阶段：
 
 	restore_noirq, restore_early, restore, complete
 
     1.	The restore_noirq phase is analogous to the resume_noirq phase.
+        restore_noirq阶段类似于resume_noirq阶段。
 
     2.	The restore_early phase is analogous to the resume_early phase.
+        restore_early阶段类似于resume_early阶段。
 
     3.	The restore phase is analogous to the resume phase.
+        restore阶段类似于resume阶段。
 
     4.	The complete phase is discussed above.
+        complete阶段在以上已有讨论。
 
 The main difference from resume[_early|_noirq] is that restore[_early|_noirq]
 must assume the device has been accessed and reconfigured by the boot loader or
@@ -623,9 +752,15 @@ this difference doesn't matter, so the resume[_early|_noirq] and
 restore[_early|_norq] method pointers can be set to the same routines.
 Nevertheless, different callback pointers are used in case there is a situation
 where it actually does matter.
+与resume[_early|_noirq]的主要区别在于restore[_early|_noirq]必须假设设备已被bootloader或
+引导内核访问并重新配置。因此，设备的状态可以与在freeze，freeze_late和freeze_noirq阶段记录的
+状态不同。甚至可能需要复位设备并完全重新初始化。在许多情况下，这种差异并不重要，因此可以将
+resume[_early|_noirq]和restore[_early|_norq]方法指针设置为相同的例程。
+然而，如果实际上有影响时，则使用不同的回调指针。
 
 
 Device Power Management Domains
+设备功耗管理域
 -------------------------------
 Sometimes devices share reference clocks or other power resources.  In those
 cases it generally is not possible to put devices into low-power states
@@ -634,6 +769,9 @@ into a low-power state together at the same time by turning off the shared
 power resource.  Of course, they also need to be put into the full-power state
 together, by turning the shared power resource on.  A set of devices with this
 property is often referred to as a power domain.
+有时，设备共享参考时钟或其他电源。在这些情况下，通常不能将设备单独置于低功耗状态。取而代之，通过关闭共享电源，
+可以同时将共享电源的一组设备同时置于低功耗状态。当然，它们也需要通过打开共享电源同时进入全功率状态。
+具有这样属性的一组设备通常称为"power domain"。
 
 Support for power domains is provided through the pm_domain field of struct
 device.  This field is a pointer to an object of type struct dev_pm_domain,
@@ -647,6 +785,11 @@ analogously for all of the remaining callbacks.  In other words, power
 management domain callbacks, if defined for the given device, always take
 precedence over the callbacks provided by the device's subsystem (e.g. bus
 type).
+通过struct device的pm_domain字段提供对"power domain"的支持。该字段是指向struct dev_pm_domain类型
+对象的指针，在include/linux/pm.h中定义，提供一组电源管理回调，类似于在所有电源转换期间为给定设备执行
+的子系统级和设备驱动程序回调，而不是相应的子系统级回调。具体来说，如果设备的pm_domain指针不是NULL，则
+将执行其指向的对象的->suspend()回调，而不是其子系统（例如总线类型）的->suspend()回调，所有其他的回调类
+似。换句话说，如果对于给定设备有定义的话，则电源管理域回调始终优先于设备子系统（例如，总线类型）提供的回调。
 
 The support for device power management domains is only relevant to platforms
 needing to use the same device driver power management callbacks in many
@@ -654,31 +797,44 @@ different power domain configurations and wanting to avoid incorporating the
 support for power domains into subsystem-level callbacks, for example by
 modifying the platform bus type.  Other platforms need not implement it or take
 it into account in any way.
-
+对设备电源管理域的支持仅与特点平台相关，指那些需要在不同电源域配置中保持使用相同设备驱动程序
+电源管理回调，并且希望避免将对电源域的支持结合到子系统级回调中的那些平台，例如通过修改平台总线类型。
+其他平台无需实现或对其做任何考虑。
 
 Device Low Power (suspend) States
+设备低功耗（挂起）状态
 ---------------------------------
 Device low-power states aren't standard.  One device might only handle
 "on" and "off", while another might support a dozen different versions of
 "on" (how many engines are active?), plus a state that gets back to "on"
 faster than from a full "off".
+设备低功耗状态不是标准状态。一个设备可能只处理"on"和"off"，而另一个设备可能支持十几个
+不同版本的"on"（有多少引擎处于活动状态？），加上一个恢复到"on"的速度比从完全"off"快的状态。
 
 Some busses define rules about what different suspend states mean.  PCI
 gives one example:  after the suspend sequence completes, a non-legacy
 PCI device may not perform DMA or issue IRQs, and any wakeup events it
 issues would be issued through the PME# bus signal.  Plus, there are
 several PCI-standard device states, some of which are optional.
+一些总线定义了关于不同挂起状态的含义的规则。以PCI为例：在挂起序列完成之后，非传统PCI设备
+可能不执行DMA或IRQ，并且它发出的任何唤醒事件将通过PME＃总线信号发出。
+此外，还有几种PCI标准设备状态，其中一些是可选的。
 
 In contrast, integrated system-on-chip processors often use IRQs as the
 wakeup event sources (so drivers would call enable_irq_wake) and might
 be able to treat DMA completion as a wakeup event (sometimes DMA can stay
 active too, it'd only be the CPU and some peripherals that sleep).
+相比之下，集成的片上系统处理器通常使用IRQ作为唤醒事件源（因此驱动程序将调用enable_irq_wake）
+并且可能将DMA的完成视为唤醒事件（有时DMA也可以保持活动状态，它只是CPU和一些睡眠的外围设备）。
 
 Some details here may be platform-specific.  Systems may have devices that
 can be fully active in certain sleep states, such as an LCD display that's
 refreshed using DMA while most of the system is sleeping lightly ... and
 its frame buffer might even be updated by a DSP or other non-Linux CPU while
 the Linux control processor stays idle.
+某些细节可能是特定于平台的。系统可能具有在某些睡眠状态下可以保持完全激活的设备，例如，系统大部分
+处于轻微睡眠状态时却使用DMA刷新的LCD显示器......并且其帧缓冲甚至可能由DSP或其他非LinuxCPU来更新，
+Linux控制处理器此时却保持空闲。
 
 Moreover, the specific actions taken may depend on the target system state.
 One target system state might allow a given device to be very operational;
@@ -686,9 +842,12 @@ another might require a hard shut down with re-initialization on resume.
 And two different target systems might use the same device in different
 ways; the aforementioned LCD might be active in one product's "standby",
 but a different product using the same SOC might work differently.
-
+此外，所采取的具体行动可能取决于目标系统状态。某个目标系统状态可能允许给定设备具有很大的可操作性;
+而另一个目标系统状态可能却需要在resume过程的重新初始化时硬关闭。两个不同的目标系统可能以不同的方式
+使用同一设备; 上述LCD可能在一个产品的"standby"中处于活动状态，但使用相同SOC的不同产品可能会有不同的工作方式。
 
 Power Management Notifiers
+功耗管理notifiers
 --------------------------
 There are some operations that cannot be carried out by the power management
 callbacks discussed above, because the callbacks occur too late or too early.
@@ -697,11 +856,15 @@ management notifiers that are called before tasks are frozen and after they have
 been thawed.  Generally speaking, the PM notifiers are suitable for performing
 actions that either require user space to be available, or at least won't
 interfere with user space.
+上面讨论的操作有些因为回调发生得太晚或太早而无法被电源管理回调执行。为了处理这些情况，子系统和
+设备驱动程序可以注册在冻结任务之前或解冻之后才被调用的电源管理notifiers。一般而言，
+PM notifiers适合于执行那些要求用户空间可用或者至少不会干扰用户空间的动作。
 
 For details refer to Documentation/power/notifiers.txt.
 
 
 Runtime Power Management
+运行时功耗管理
 ========================
 Many devices are able to dynamically power down while the system is still
 running. This feature is useful for devices that are not being used, and
@@ -710,11 +873,16 @@ often support a range of runtime power states, which might use names such
 as "off", "sleep", "idle", "active", and so on.  Those states will in some
 cases (like PCI) be partially constrained by the bus the device uses, and will
 usually include hardware states that are also used in system sleep states.
+许多设备能够在系统仍在运行时动态断电。此功能对于未使用的设备非常有用，并且可以令正在运行的系统
+显着节省功耗。这些设备通常支持一系列运行时电源状态，这些状态可能使用诸如"off"，"sleep"，"idle"，"active"等名称。
+在某些情况下（如PCI），这些状态会受到设备所用总线的部分约束，并且用于系统睡眠状态的硬件状态通常也属于这些状态。
 
 A system-wide power transition can be started while some devices are in low
 power states due to runtime power management.  The system sleep PM callbacks
 should recognize such situations and react to them appropriately, but the
 necessary actions are subsystem-specific.
+由于运行时电源管理而使某些设备处于低功耗状态时，可以启动系统级电源转换。系统睡眠PM回调应该
+识别这种情况并对它们做出适当的反应，但必要的操作是特定于子系统的。
 
 In some cases the decision may be made at the subsystem level while in other
 cases the device driver may be left to decide.  In some cases it may be
@@ -723,8 +891,13 @@ transition, but in other cases the device must be put back into the full-power
 state temporarily, for example so that its system wakeup capability can be
 disabled.  This all depends on the hardware and the design of the subsystem and
 device driver in question.
+在某些情况下，可以在子系统级别做出决定，而在其他情况下，可以由设备驱动程序决定。
+在某些情况下，可能需要在系统级电源转换期间让挂起的设备保持状态，但在其他情况下，设备必须暂时
+恢复到全功率状态，比如需要设备的系统唤醒能力被禁用的情况。这一切都取决于所涉及的子系统和设备驱动程序的硬件和设计。
 
 During system-wide resume from a sleep state it's easiest to put devices into
 the full-power state, as explained in Documentation/power/runtime_pm.txt.  Refer
 to that document for more information regarding this particular issue as well as
 for information on the device runtime power management framework in general.
+从睡眠状态发起的系统级resume，最简单的实现方法是将设备置于全功率状态，如Documentation/power/runtime_pm.txt中所述。
+有关此特定问题的更多信息以及有关设备运行时电源管理框架的更多信息，请参阅该文档。
