@@ -1,40 +1,54 @@
 Documentation for userland software suspend interface
 	(C) 2006 Rafael J. Wysocki <rjw@sisk.pl>
+        
+该文件主要讨论了用户空间的snapshot设备节点的ioctl()等方法
 
 First, the warnings at the beginning of swsusp.txt still apply.
+首先，在swsusp.txt开始的警告仍然有效。
 
 Second, you should read the FAQ in swsusp.txt _now_ if you have not
 done it already.
+其次，最好先阅读swsusp.txt中的FAQ。
 
 Now, to use the userland interface for software suspend you need special
 utilities that will read/write the system memory snapshot from/to the
 kernel.  Such utilities are available, for example, from
 <http://suspend.sourceforge.net>.  You may want to have a look at them if you
 are going to develop your own suspend/resume utilities.
+现在，要使用userland接口进行软件挂起，您需要使用特殊的程序来从/向内核读取/写入系统内存快照。
+例如，可以从<http://suspend.sourceforge.net>获得这样的程序。如果您要开发自己的挂起/恢复程序，可能需要查看它们。
 
 The interface consists of a character device providing the open(),
 release(), read(), and write() operations as well as several ioctl()
 commands defined in include/linux/suspend_ioctls.h .  The major and minor
 numbers of the device are, respectively, 10 and 231, and they can
 be read from /sys/class/misc/snapshot/dev.
+该接口由一个提供open()，release()，read()和write()操作以及include/linux/suspend_ioctls.h中定义
+的几个ioctl()命令的字符设备组成。设备的主次设备号分别为10和231，可以从/sys/class/misc/snapshot/dev读取。
 
 The device can be open either for reading or for writing.  If open for
 reading, it is considered to be in the suspend mode.  Otherwise it is
 assumed to be in the resume mode.  The device cannot be open for simultaneous
 reading and writing.  It is also impossible to have the device open more than
 once at a time.
+该设备可以打开以进行读取或写入。如果打开以进行读取，则认为它处于挂起模式。否则，假设它处于恢复模式。
+设备无法打开以进行同时读写，也不可能让设备同时打开多次。
 
 Even opening the device has side effects. Data structures are
 allocated, and PM_HIBERNATION_PREPARE / PM_RESTORE_PREPARE chains are
 called.
+即使打开设备也有副作用，会分配数据结构，并调用PM_HIBERNATION_PREPARE/PM_RESTORE_PREPARE链。
 
 The ioctl() commands recognized by the device are:
+设备识别的ioctl()命令是：
 
 SNAPSHOT_FREEZE - freeze user space processes (the current process is
 	not frozen); this is required for SNAPSHOT_CREATE_IMAGE
 	and SNAPSHOT_ATOMIC_RESTORE to succeed
+	冻结用户空间进程（current进程未冻结）;这是SNAPSHOT_CREATE_IMAGE和SNAPSHOT_ATOMIC_RESTORE成功所必需的
 
 SNAPSHOT_UNFREEZE - thaw user space processes frozen by SNAPSHOT_FREEZE
+		    解冻由SNAPSHOT_FREEZE冻结的用户空间进程
 
 SNAPSHOT_CREATE_IMAGE - create a snapshot of the system memory; the
 	last argument of ioctl() should be a pointer to an int variable,
@@ -44,32 +58,43 @@ SNAPSHOT_CREATE_IMAGE - create a snapshot of the system memory; the
 	SNAPSHOT_CREATE_IMAGE ioctl() again); after the snapshot
 	has been created the read() operation can be used to transfer
 	it out of the kernel
+	创建系统内存的快照; ioctl()的最后一个参数应该是一个指向int变量的指针，其值为(1)代表
+	调用发生在创建快照之后，为(0)代表调用发生在从快照恢复系统内存状态之后（恢复后，系统发现
+	自己再次完成SNAPSHOT_CREATE_IMAGE ioctl()）;创建快照后，可以使用read()操作将其传输出内核
 
 SNAPSHOT_ATOMIC_RESTORE - restore the system memory state from the
 	uploaded snapshot image; before calling it you should transfer
 	the system memory snapshot back to the kernel using the write()
 	operation; this call will not succeed if the snapshot
 	image is not available to the kernel
+	从上传的快照镜像恢复系统内存状态;在调用它之前，你应该使用write()操作将系统内存快照传回内核;
+	如果内核无法使用快照镜像，则此调用将不会成功
 
 SNAPSHOT_FREE - free memory allocated for the snapshot image
+                释放为快照镜像分配的内存
 
 SNAPSHOT_PREF_IMAGE_SIZE - set the preferred maximum size of the image
 	(the kernel will do its best to ensure the image size will not exceed
 	this number, but if it turns out to be impossible, the kernel will
 	create the smallest image possible)
+        设置镜像的首选最大大小（内核将尽最大努力确保镜像大小不会超过此数字，但如果做不到，则内核会创建最小的镜像）
 
 SNAPSHOT_GET_IMAGE_SIZE - return the actual size of the hibernation image
+                        返回休眠镜像的实际大小
 
 SNAPSHOT_AVAIL_SWAP_SIZE - return the amount of available swap in bytes (the
 	last argument should be a pointer to an unsigned int variable that will
 	contain the result if the call is successful).
+        以字节为单位返回可用swap大小（最后一个参数应该是指向unsigned int变量的指针，如果调用成功，则该变量将包含结果）。
 
 SNAPSHOT_ALLOC_SWAP_PAGE - allocate a swap page from the resume partition
 	(the last argument should be a pointer to a loff_t variable that
 	will contain the swap page offset if the call is successful)
+        从resume分区分配一个交换页面（最后一个参数应该是一个指向loff_t变量的指针，如果调用成功，它将包含交换页面偏移量）
 
 SNAPSHOT_FREE_SWAP_PAGES - free all swap pages allocated by
 	SNAPSHOT_ALLOC_SWAP_PAGE
+        通过SNAPSHOT_ALLOC_SWAP_PAGE释放所有的swap页
 
 SNAPSHOT_SET_SWAP_AREA - set the resume partition and the offset (in <PAGE_SIZE>
 	units) from the beginning of the partition at which the swap header is
@@ -79,12 +104,17 @@ SNAPSHOT_SET_SWAP_AREA - set the resume partition and the offset (in <PAGE_SIZE>
 	partitions the offset is always 0, but it is different from zero for
 	swap files (see Documentation/power/swsusp-and-swap-files.txt for
 	details).
+        设置resume分区和swap header在其所在分区的偏移量（以<PAGE_SIZE>为单位）（最后一个ioctl()参数应
+        指向struct resume_swap_area，如kernel/power/suspend_ioctls.h中所定义，该结构包含恢复设备规范和偏移量）;
+        对于交换分区，偏移量始终为0，但对于交换文件则不为0（详细信息，请参阅Documentation/power/swsusp-and-swap-files.txt）。
 
 SNAPSHOT_PLATFORM_SUPPORT - enable/disable the hibernation platform support,
 	depending on the argument value (enable, if the argument is nonzero)
+        启用/禁用休眠平台支持，具体取决于参数值（如果参数非零，则启用）
 
 SNAPSHOT_POWER_OFF - make the kernel transition the system to the hibernation
 	state (eg. ACPI S4) using the platform (eg. ACPI) driver
+        使用平台（例如，ACPI）驱动程序使内核将系统转换到休眠状态（例如，ACPI S4）
 
 SNAPSHOT_S2RAM - suspend to RAM; using this call causes the kernel to
 	immediately enter the suspend-to-RAM state, so this call must always
@@ -95,6 +125,9 @@ SNAPSHOT_S2RAM - suspend to RAM; using this call causes the kernel to
 	to disk, and then the system is suspended to RAM (this makes it possible
 	to resume the system from RAM if there's enough battery power or restore
 	its state on the basis of the saved suspend image otherwise)
+        挂起到RAM; 使用此调用会导致内核立即进入STR状态，因此此调用必须始终在SNAPSHOT_FREEZE调用之后，
+        并且在系统唤醒后还必须使用SNAPSHOT_UNFREEZE调用。在首次创建挂起镜像时，需要此调用来实现suspend-to-both机制。
+        此机制指的是，系统已挂起到磁盘，然后系统挂起到RAM（如果有足够的电池电量，则可以从RAM恢复系统，或者根据保存的挂起镜像来恢复）
 
 The device's read() operation can be used to transfer the snapshot image from
 the kernel.  It has the following limitations:
@@ -102,9 +135,13 @@ the kernel.  It has the following limitations:
 - read()s across page boundaries are impossible (ie. if ypu read() 1/2 of
 	a page in the previous call, you will only be able to read()
 	_at_ _most_ 1/2 of the page in the next call)
+设备的read()操作可用于从内核读取快照镜像。它有以下限制：
+- 你不能一次read(0多个虚拟内存页面
+- 跨越页面边界的read()s是不可能的（即，如果您在上一次调用中read()一页的1/2，则您将只能在下一次调用中read()最多1/2页面）
 
 The device's write() operation is used for uploading the system memory snapshot
 into the kernel.  It has the same limitations as the read() operation.
+设备的write()操作用于将系统内存快照上载到内核中。 它与read()操作具有相同的限制。
 
 The release() operation frees all memory allocated for the snapshot image
 and all swap pages allocated with SNAPSHOT_ALLOC_SWAP_PAGE (if any).
@@ -112,6 +149,9 @@ Thus it is not necessary to use either SNAPSHOT_FREE or
 SNAPSHOT_FREE_SWAP_PAGES before closing the device (in fact it will also
 unfreeze user space processes frozen by SNAPSHOT_UNFREEZE if they are
 still frozen when the device is being closed).
+release()操作释放为快照镜像分配的所有内存以及使用SNAPSHOT_ALLOC_SWAP_PAGE（如果有）分配的所有交换页。
+因此，在关闭设备之前不必使用SNAPSHOT_FREE或SNAPSHOT_FREE_SWAP_PAGES（事实上，如果在关闭设备时它们仍然
+被冻结，它也将由SNAPSHOT_UNFREEZE解冻冻结的用户空间进程）。
 
 Currently it is assumed that the userland utilities reading/writing the
 snapshot image from/to the kernel will use a swap partition, called the resume
@@ -120,15 +160,21 @@ partition is the partition that holds this file).  However, this is not really
 required, as they can use, for example, a special (blank) suspend partition or
 a file on a partition that is unmounted before SNAPSHOT_CREATE_IMAGE and
 mounted afterwards.
+目前，假设从内核读取/写入快照映像的userland实用程序将使用交换分区（称为恢复分区）或交换文件作为
+存储空间（如果使用交换文件，则保存此文件的分区被称为恢复分区）。但是，这并不是真正需要的，因为
+它们可以使用例如特殊（空白）挂起分区或分区上的文件，该分区在SNAPSHOT_CREATE_IMAGE之前卸载并在之后挂载。
 
 These utilities MUST NOT make any assumptions regarding the ordering of
 data within the snapshot image.  The contents of the image are entirely owned
 by the kernel and its structure may be changed in future kernel releases.
+这些实用程序不得对快照映像中的数据排序做出任何假设。镜像的内容完全由内核拥有，其结构可能会在将来的内核版本中更改。
 
 The snapshot image MUST be written to the kernel unaltered (ie. all of the image
 data, metadata and header MUST be written in _exactly_ the same amount, form
 and order in which they have been read).  Otherwise, the behavior of the
 resumed system may be totally unpredictable.
+快照映像必须不加改变地写入内核（即，所有镜像数据、元数据和标题必须用和读取时一样的数量、形式和顺序写入）。
+否则，恢复系统的行为可能完全不可预测。
 
 While executing SNAPSHOT_ATOMIC_RESTORE the kernel checks if the
 structure of the snapshot image is consistent with the information stored
@@ -136,15 +182,21 @@ in the image header.  If any inconsistencies are detected,
 SNAPSHOT_ATOMIC_RESTORE will not succeed.  Still, this is not a fool-proof
 mechanism and the userland utilities using the interface SHOULD use additional
 means, such as checksums, to ensure the integrity of the snapshot image.
+在执行SNAPSHOT_ATOMIC_RESTORE时，内核检查快照映像的结构是否与存储在映像头中的信息一致。
+如果检测到任何不一致，SNAPSHOT_ATOMIC_RESTORE将不会成功。尽管如此，这不是一个万无一失的机制，
+使用接口的用户区实用程序应该使用其他方法，例如校验和，进一步确保快照映像的完整性。
 
 The suspending and resuming utilities MUST lock themselves in memory,
 preferably using mlockall(), before calling SNAPSHOT_FREEZE.
+在调用SNAPSHOT_FREEZE之前，挂起和恢复实用程序必须将自己锁定在内存中，最好使用mlockall(）。
 
 The suspending utility MUST check the value stored by SNAPSHOT_CREATE_IMAGE
 in the memory location pointed to by the last argument of ioctl() and proceed
 in accordance with it:
+挂起实用程序必须检查SNAPSHOT_CREATE_IMAGE存储在ioctl()的最后一个参数指向的内存位置中的值，并按照它继续：
 1. 	If the value is 1 (ie. the system memory snapshot has just been
 	created and the system is ready for saving it):
+        如果该值为1（比如，系统内存快照刚被创建并且系统准备好保存它）
 	(a)	The suspending utility MUST NOT close the snapshot device
 		_unless_ the whole suspend procedure is to be cancelled, in
 		which case, if the snapshot image has already been saved, the
@@ -152,19 +204,28 @@ in accordance with it:
 		its header.  If the suspend is not to be cancelled, the
 		system MUST be powered off or rebooted after the snapshot
 		image has been saved.
+                挂起实用程序绝不能关闭snapshot设备节点，除非要取消整个挂起过程，在这种情况下，
+                如果快照映像已经保存，挂起实用程序应该销毁它，最好是通过摧毁其header。
+                如果不取消挂起，则必须在保存快照映像后关闭或重新启动系统。
 	(b)	The suspending utility SHOULD NOT attempt to perform any
 		file system operations (including reads) on the file systems
 		that were mounted before SNAPSHOT_CREATE_IMAGE has been
 		called.  However, it MAY mount a file system that was not
 		mounted at that time and perform some operations on it (eg.
 		use it for saving the image).
+                挂起实用程序不应尝试在那些调用SNAPSHOT_CREATE_IMAGE之前已经挂载的文件系统上
+                执行任何文件系统操作（包括读取）。但是，它可以挂载当时未安装的文件系统并对其执行
+                某些操作（例如，使用它来保存镜像）。（应该是为了保证文件系统的一致性，其实读取也会留下记录）
 2.	If the value is 0 (ie. the system state has just been restored from
 	the snapshot image), the suspending utility MUST close the snapshot
 	device.  Afterwards it will be treated as a regular userland process,
 	so it need not exit.
+        如果值为0（即刚刚从快照映像恢复系统状态），则挂起实用程序必须关闭snapshot设备节点。
+        之后它将被视为常规用户空间进程，因此无需退出。
 
 The resuming utility SHOULD NOT attempt to mount any file systems that could
 be mounted before suspend and SHOULD NOT attempt to perform any operations
 involving such file systems.
+resume实用程序不应该去尝试挂载挂起操作之前可能挂载的任何文件系统，并且不应该尝试执行涉及此类文件系统的任何操作。
 
 For details, please refer to the source code.
