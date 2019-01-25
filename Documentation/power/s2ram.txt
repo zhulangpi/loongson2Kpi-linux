@@ -5,13 +5,16 @@
 
 1) Check suspend.sf.net, program s2ram there has long whitelist of
    "known ok" machines, along with tricks to use on each one.
+   查阅网站suspend.sf.net，这里有s2ram“已知ok”的机器的白名单，包括每个机器上的使用技巧。
 
 2) If that does not help, try reading tricks.txt and
    video.txt. Perhaps problem is as simple as broken module, and
    simple module unload can fix it.
+   如果这没有帮助，请尝试阅读tricks.txt和video.txt。也许问题就像破坏模块一样简单，简单的模块卸载可以修复它。
 
 3) You can use Linus' TRACE_RESUME infrastructure, described below.
-
+   你可以看看林纳斯的TRACE_RESUME框架，如下所述。
+   
 		      Using TRACE_RESUME
 		      ~~~~~~~~~~~~~~~~~~
 
@@ -21,13 +24,18 @@ debugging - the thing that Chuck tried to disable. That's often the _only_
 way to debug these things, and it's actually pretty powerful (but
 time-consuming - having to insert TRACE_RESUME() markers into the device
 driver that doesn't resume and recompile and reboot).
+我一直在努力制造我能够使用STR的机器，但是问题几乎总是在于一个有缺陷的驱动。感谢挂起/恢复调试 - 这是Chuck试图禁用的东西。
+这通常是调试这些东西的唯一方法，它实际上非常强大（但非常耗时 - 必须将TRACE_RESUME()标记插入到不能resume的驱动程序并重新编译和重新启动）。
 
 Anyway, the way to debug this for people who are interested (have a
 machine that doesn't boot) is:
+无论如何，感兴趣的人（有一台无法启动的机器）debug的方法是：
 
  - enable PM_DEBUG, and PM_TRACE
+   使能PM_DEBUG和PM_TRACE
 
  - use a script like this:
+   使用这样一个脚本来挂起：
 
 	#!/bin/sh
 	sync
@@ -35,11 +43,13 @@ machine that doesn't boot) is:
 	echo mem > /sys/power/state
 
    to suspend
+   
 
  - if it doesn't come back up (which is usually the problem), reboot by
    holding the power button down, and look at the dmesg output for things
    like
-
+   如果它没有恢复（这通常是问题），按住电源按钮重新启动，并查看类似的dmesg输出
+        
 	Magic number: 4:156:725
 	hash matches drivers/base/power/resume.c:28
 	hash matches device 0000:01:00.0
@@ -48,11 +58,15 @@ machine that doesn't boot) is:
    device 0000:01:00.0. Then figure out what driver is controlling that
    device (lspci and /sys/devices/pci* is your friend), and see if you can
    fix it, disable it, or trace into its resume function.
+   这意味着最后一个trace事件就在尝试恢复设备0000：01：00.0之前。然后找出控制该设备的驱动程序（利用lspci和/sys/devices/pci*），
+   看看你是否可以修复它，禁用它，或者跟踪它的resume函数。
 
    If no device matches the hash (or any matches appear to be false positives),
    the culprit may be a device from a loadable kernel module that is not loaded
    until after the hash is checked. You can check the hash against the current
    devices again after more modules are loaded using sysfs:
+   如果没有设备匹配哈希（或任何匹配似乎是误报），罪魁祸首可能是直到检查哈希后才加载的某个可加载内核模块的设备，。
+   在使用sysfs加载更多模块后，您可以再次检查当前设备的哈希：
 
 	cat /sys/power/pm_trace_dev_match
 
@@ -61,6 +75,9 @@ used to run with "radeonfb" (it's an ATI Radeon mobility). It turns out
 that "radeonfb" simply cannot resume that device - it tries to set the
 PLL's, and it just _hangs_. Using the regular VGA console and letting X
 resume it instead works fine.
+例如，上面碰巧是我的EVO上的VGA设备，我曾经用"radeonfb"（它是ATI Radeon移动性）来运行它。
+事实证明，"radeonfb"根本无法resume该设备 - 它试图设置PLL，但只能hang在那里。
+使用常规VGA控制台并让"X"来resume它则可以正常工作。
 
 NOTE
 ====
@@ -68,14 +85,19 @@ pm_trace uses the system's Real Time Clock (RTC) to save the magic number.
 Reason for this is that the RTC is the only reliably available piece of
 hardware during resume operations where a value can be set that will
 survive a reboot.
+pm_trace使用系统的实时时钟（RTC）来保存魔数。原因是RTC是resume操作期间唯一可靠的硬件，其中可以设置一个值，该值可以在重启后继续存在。
 
 Consequence is that after a resume (even if it is successful) your system
 clock will have a value corresponding to the magic number instead of the
 correct date/time! It is therefore advisable to use a program like ntp-date
 or rdate to reset the correct date/time from an external time source when
 using this trace option.
+结果是在恢复之后（即使它成功），您的系统时钟将具有与幻数相对应的值而不是正确的日期/时间！
+因此，建议使用ntp-date或rdate等程序在使用此跟踪选项时从外部时间源重置正确的日期/时间。
 
 As the clock keeps ticking it is also essential that the reboot is done
 quickly after the resume failure. The trace option does not use the seconds
 or the low order bits of the minutes of the RTC, but a too long delay will
 corrupt the magic value.
+随着时钟的不断变化，在resume失败后快速完成重启也很重要。
+因为trace选项虽然不使用RTC的秒位或分钟的低位，但是太长的延迟还是会覆盖掉魔数。
