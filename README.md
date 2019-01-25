@@ -1,3 +1,8 @@
-# loongson2Kpai-linux
-龙芯2K派一代，linux 3.10.84
-主要用于学习
+# loongson2Kpi-linux
+硬件平台为龙芯2K派一代，SOC为国产龙芯2K1000B
+软件平台为linux 3.10.84
+主要用于学习和毕业课题研究
+主要工作分为三部分
+1.课题需要的代码改动同步
+2.阅读的代码的注释工作
+3.Documentation目录下内核文档的翻译工作
