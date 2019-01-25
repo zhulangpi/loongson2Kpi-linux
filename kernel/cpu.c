@@ -69,8 +69,14 @@ static struct {
 	.lock = __MUTEX_INITIALIZER(cpu_hotplug.lock),
 	.refcount = 0,
 };
+/* 
+  .active_writer字段保存的是对CPUS online状态做出改变的线程，如热插拔相关代码
+  reader指的是与CPUS online状态相关的代码段
+  The reference count is raised with get_online_cpus() to indicate that the set of online CPUs should not be changed.
+  参考 https://lwn.net/Articles/569686/  */
 
-/* 增加当前CPU的进程引用计数？，由reader调用 */
+
+/* 增加online CPUS状态的引用计数？，由reader调用 */
 void get_online_cpus(void)
 {
 	might_sleep();

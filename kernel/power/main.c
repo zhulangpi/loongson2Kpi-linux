@@ -518,7 +518,7 @@ power_attr(wake_unlock);
 #endif /* CONFIG_PM_WAKELOCKS */
 #endif /* CONFIG_PM_SLEEP */
 
-#ifdef CONFIG_PM_TRACE
+#ifdef CONFIG_PM_TRACE	/* 该配置依赖于X86架构 */
 int pm_trace_enabled;
 
 static ssize_t pm_trace_show(struct kobject *kobj, struct kobj_attribute *attr,
