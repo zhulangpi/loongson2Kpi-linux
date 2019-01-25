@@ -4,10 +4,12 @@ Some warnings, first.
  *
  * If you touch anything on disk between suspend and resume...
  *				...kiss your data goodbye.
+ * 如果你在挂起和恢复期间触碰了磁盘上的任何东西。。。和你的数据说拜拜吧。
  *
  * If you do resume from initrd after your filesystems are mounted...
  *				...bye bye root partition.
  *			[this is actually same case as above]
+ * 如果你在你的文件系统挂载后从initrd中resume。。。再见了root分区
  *
  * If you have unsupported (*) devices using DMA, you may have some
  * problems. If your disk driver does not support suspend... (IDE does),
@@ -15,31 +17,36 @@ Some warnings, first.
  * between suspend and resume, it may do something wrong. If you change
  * your hardware while system is suspended... well, it was not good idea;
  * but it will probably only crash.
+ * 如果你有不支持(*)的设备使用了DMA，可能会出现问题。如果你的磁盘驱动不支持挂起（IDE就是）。。。
+ * 也会引起一些问题。如果你在挂起和恢复期间改变了内核命令行，可能会令某些东西产生错误。
+ * 如果你在系统挂起后改变了硬件。。。呃，这不是个好主意；但可能只是造成crash。
  *
  * (*) suspend/resume support is needed to make it safe.
+ * (*) 加星号部分表示，要使其安全，suspend/resume支持使必要的。
  *
  * If you have any filesystems on USB devices mounted before software suspend,
  * they won't be accessible after resume and you may lose data, as though
  * you have unplugged the USB devices with mounted filesystems on them;
  * see the FAQ below for details.  (This is not true for more traditional
  * power states like "standby", which normally don't turn USB off.)
- * 如果在软挂起之前挂载了USB设备上的任何文件系统，则恢复后将无法访问这些文件系统，
+ * 如果在软件挂起之前挂载了USB设备上的任何文件系统，则resume后将无法访问这些文件系统，
  * 并且您可能会丢失数据，就好像已经拔掉挂载了文件系统的USB设备一样; 
- * 有关详细信息，请参阅下面的FAQ （对于更常见的电源状态，例如“待机”，这通常不会关闭USB。）
+ * 有关详细信息，请参阅下面的FAQ （对于更常见的电源状态，例如"standby"，这通常不会关闭USB。）
 
 You need to append resume=/dev/your_swap_partition to kernel command
 line. Then you suspend by
-你需要添加 resume=/dev/your_swap_partition 到内核命令行
+你需要添加 resume=/dev/your_swap_partition 到内核命令行，然后你可以通过以下命令来执行挂起
 
 echo shutdown > /sys/power/disk; echo disk > /sys/power/state
 
 . If you feel ACPI works pretty well on your system, you might try
+. 如果你的系统上ACPI工作的很好的话，你可以试试
 
 echo platform > /sys/power/disk; echo disk > /sys/power/state
 
 . If you would like to write hibernation image to swap and then suspend
 to RAM (provided your platform supports it), you can try
-如果想写休眠镜像到交换区，然后挂起到RAM（假设你的平台支持），你可以
+. 如果想将休眠镜像写到交换区，然后挂起到RAM（假设你的平台支持），你可以
 
 echo suspend > /sys/power/disk; echo disk > /sys/power/state
 
@@ -48,10 +55,11 @@ support. For suspend and resume to work, make sure your disk drivers
 are built into kernel -- not modules. [There's way to make
 suspend/resume with modular disk drivers, see FAQ, but you probably
 should not do that.]
-如果用SATA磁盘，你需要最近的支持SATA挂起的内核。确保你的磁盘驱动编译进内核。
+. 如果用SATA磁盘，你需要最近的支持SATA挂起的内核。确保你的磁盘驱动编译进内核而不是编译成模块。
+  （FAQ中有方法提到如何使用模块化的磁盘驱动来挂起/恢复，但是你不应该那么做。）
 
 If you want to limit the suspend image size to N bytes, do
-如果你想限制挂起镜像的大小在N字节内，
+如果你想限制挂起镜像的大小在N字节内，在挂起之前（默认限制使500MB）：
 
 echo N > /sys/power/image_size
 
@@ -59,11 +67,13 @@ before suspend (it is limited to 500 MB by default).
 
 
 Article about goals and implementation of Software Suspend for Linux
+关于Linux软件挂起的目的和实现的文章
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Author: Gábor Kuti
 Last revised: 2003-10-20 by Pavel Machek
 
 Idea and goals to achieve
+想法和要实现的目标
 
 Nowadays it is common in several laptops that they have a suspend button. It
 saves the state of the machine to a filesystem or to a partition and switches
@@ -74,8 +84,8 @@ are real high when running from batteries. The other gain is that we don't have 
 interrupt our programs so processes that are calculating something for a long
 time shouldn't need to be written interruptible.
 当今，很常见笔记本有挂起按钮。它保存机器状态到文件系统或一个分区，并切换到standby模式。
-之后，保存的状态被加载回ram并且机器继续工作。有两个好处，1.加快开关机速度 2.我们不必中断那些需要
-很长时间计算的进程。
+之后，保存的状态被加载回ram并且机器继续工作。
+有两个好处，1.加快开关机速度 2.我们不必中断那些需要很长时间计算的进程。
 
 swsusp saves the state of the machine into active swaps and then reboots or
 powerdowns.  You must explicitly specify the swap partition to resume from with
@@ -84,7 +94,7 @@ state. If the option ``noresume'' is specified as a boot parameter, it skips
 the resuming.  If the option ``hibernate=nocompress'' is specified as a boot
 parameter, it saves hibernation image without compression.
 swsusp保存状态到活动的交换区然后重启或断电。你必须通过内核选项确定从哪个交换区恢复。如果找到签名，
-它会加载恢复保存的状态。如果启动参数指定为"noresume"，启动会跳过恢复过程。如果启动参数
+它会加载并恢复保存的状态。如果启动参数指定为"noresume"，启动会跳过恢复过程。如果启动参数
 指定"hibernate=nocompress"，保存休眠镜像时不会压缩。
 
 In the meantime while the system is suspended you should not add/remove any
@@ -92,10 +102,12 @@ of the hardware, write to the filesystems, etc.
 挂起系统时不可以增减硬件，写入文件系统等
 
 Sleep states summary
+睡眠状态总结
 ====================
 
 There are three different interfaces you can use, /proc/acpi should
 work like this:
+您可以使用三种不同的接口，/proc/acpi应该像这样工作：
 
 In a really perfect world:
 echo 1 > /proc/acpi/sleep       # for standby
@@ -112,16 +124,20 @@ Frequently Asked Questions
 
 Q: well, suspending a server is IMHO a really stupid thing,
 but... (Diego Zuccato):
+   好吧，恕我直言，挂起服务器是一个非常愚蠢的事情，但......（Diego Zuccato）：
 
 A: You bought new UPS for your server. How do you install it without
 bringing machine down? Suspend to disk, rearrange power cables,
 resume.
+   您为服务器购买了新的UPS（不间断电源）。如何在不断电机器的情况下安装它？
+   挂起到磁盘，重装电源线，恢复。
 
 You have your server on UPS. Power died, and UPS is indicating 30
 seconds to failure. What do you do? Suspend to disk.
-
+您的服务器连接在UPS上。电源耗尽，UPS指示30秒后断电。咋办？挂起到磁盘。
 
 Q: Maybe I'm missing something, but why don't the regular I/O paths work?
+   也许我错过了什么，但为什么常规的I/O路径不起作用？
 
 A: We do use the regular I/O paths. However we cannot restore the data
 to its original location as we load it. That would create an
@@ -129,19 +145,25 @@ inconsistent kernel state which would certainly result in an oops.
 Instead, we load the image into unused memory and then atomically copy
 it back to it original location. This implies, of course, a maximum
 image size of half the amount of memory.
+   我们使用常规I/O路径。但是，当我们加载数据时，我们无法将数据恢复到其原始位置。这将创建一个不一致的内核状态，
+   这肯定会导致oops。相反，我们将镜像加载到未使用的内存中，然后以原子方式将其复制回原始位置。当然，这意味着最大镜像大小是内存大小的一半。
 
 There are two solutions to this:
+对此有两种方案：
 
 * require half of memory to be free during suspend. That way you can
 read "new" data onto free spots, then cli and copy
+  在挂起期间需要一半的内存空闲。这样你就可以将“新”数据读到空闲位置，然后cli(command-line interface?)和copy
 
 * assume we had special "polling" ide driver that only uses memory
 between 0-640KB. That way, I'd have to make sure that 0-640KB is free
 during suspending, but otherwise it would work...
+  假设我们有一个特殊的“轮询”ide驱动程序，它只使用0-640KB之间的内存。这样，我必须确保暂停期间0-640KB是空闲的，否则它会起作用......
 
 suspend2 shares this fundamental limitation, but does not include user
 data and disk caches into "used memory" by saving them in
 advance. That means that the limitation goes away in practice.
+suspend2同样有此基本限制，但不会将用户数据和磁盘缓存包含在“已用内存”中，而是通过提前保存它们。这意味着这种限制在实际消失了。
 
 Q: Does linux support ACPI S4?
 
@@ -159,12 +181,18 @@ or an NFS share[Work In Progress]). Questions regarding suspend2
 should be sent to the mailing list available through the suspend2
 website, and not to the Linux Kernel Mailing List. We are working
 toward merging suspend2 into the mainline kernel.
+  suspend2是'Software Suspend 2'，是STD的一个分叉实现，可作为swsusp.sourceforge.net的2.4和2.6内核的单独补丁。
+  它包括对SMP，4GB highmem和抢占的支持。它还具有可扩展的架构，允许对映像进行任意转换（压缩、加密）
+  并允许任意用于写入映像的后端（例如，写到swap或NFS共享[还在开发中]）。
+  有关suspend2的问题应该通过suspend2网站发送到邮件列表，而不是发送到Linux内核邮件列表。我们正在努力将suspend2合并到主线内核中。
 
 Q: What is the freezing of tasks and why are we using it?
 
 A: The freezing of tasks is a mechanism by which user space processes and some
 kernel threads are controlled during hibernation or system-wide suspend (on some
 architectures).  See freezing-of-tasks.txt for details.
+   冻结任务是一种机制，通过该机制，在休眠或系统级挂起期间（在某些体系结构上）可以控制用户空间进程和一些内核线程。
+   有关详细信息，请参阅freeze-of-tasks.txt。
 
 Q: What is the difference between "platform" and "shutdown"?
 
@@ -177,24 +205,35 @@ platform: save state in linux, then tell bios to powerdown and blink
 
 "platform" is actually right thing to do where supported, but
 "shutdown" is most reliable (except on ACPI systems).
+在支持的时候，"platform"确实是正确的，但"shutdown"是最可靠的（ACPI系统除外）。
 
 Q: I do not understand why you have such strong objections to idea of
 selective suspend.
+   我不明白你为什么强烈反对选择性挂起。
 
 A: Do selective suspend during runtime power management, that's okay. But
 it's useless for suspend-to-disk. (And I do not see how you could use
 it for suspend-to-ram, I hope you do not want that).
+   在运行时电源管理期间执行选择性挂起，这没关系。但对于STD，选择性挂起是没用的。
+   （而且我不知道怎么用它来STR，我希望你也不要那么考虑）。
 
 Lets see, so you suggest to
+让我们看看，所以你建议
 
 * SUSPEND all but swap device and parents
 * Snapshot
 * Write image to disk
 * SUSPEND swap device and parents
 * Powerdown
+* 挂起所有设备，除了swap设备和其父设备
+* 快照
+* 写入镜像到磁盘
+* 挂起swap设备和其父设备
+* 断电
 
 Oh no, that does not work, if swap device or its parents uses DMA,
 you've corrupted data. You'd have to do
+哦不，这不起作用，如果swap设备或其父设备使用DMA，你已经损坏了数据。你必须这样做
 
 * SUSPEND all but swap device and parents
 * FREEZE swap device and parents
@@ -202,60 +241,74 @@ you've corrupted data. You'd have to do
 * UNFREEZE swap device and parents
 * Write
 * SUSPEND swap device and parents
+* 挂起所有设备，除了swap设备和其父设备
+* 冻结swap设备和其父设备
+* 快照
+* 解冻swap设备和其父设备
+* 写
+* 挂起swap设备和其父设备
 
 Which means that you still need that FREEZE state, and you get more
 complicated code. (And I have not yet introduce details like system
 devices).
+这意味着你仍然需要FREEZE状态，并且你会得到更复杂的代码。（我还没有介绍像系统设备这样的细节）。
 
 Q: There don't seem to be any generally useful behavioral
 distinctions between SUSPEND and FREEZE.
+   SUSPEND和FREEZE之间似乎没有什么重要的行为上的区别。
 
 A: Doing SUSPEND when you are asked to do FREEZE is always correct,
 but it may be unnecessarily slow. If you want your driver to stay simple,
 slowness may not matter to you. It can always be fixed later.
+   你可以在要求FREEZE时总是SUSPEND，这没问题，但会不必要地慢。如果您希望您的驱动保持简单，
+   那么缓慢对您来说无关紧要。它总是可以在以后修复。
 
 For devices like disk it does matter, you do not want to spindown for
 FREEZE.
+对于像磁盘这样的设备就不一样了，你不会想为了FREEZE而spindown的。
 
 Q: After resuming, system is paging heavily, leading to very bad interactivity.
+   resume之后，系统在大量的页交换，这会使系统的交互性很差
 
 A: Try running
+   试着在resume后运行
 
 cat `cat /proc/[0-9]*/maps | grep / | sed 's:.* /:/:' | sort -u` > /dev/null
 
 after resume. swapoff -a; swapon -a may also be useful.
+swapoff -a; swapon -a也可能有效。
 
 Q: What happens to devices during swsusp? They seem to be resumed
 during system suspend?
-设备在swsusp时发生了什么，它们在系统挂起时有恢复吗？
+设备在swsusp时发生了什么，它们在系统挂起时有resume吗？
 
 A: That's correct. We need to resume them if we want to write image to
 disk. Whole sequence goes like
-是的，如果我们想向磁盘写入镜像，我们需要恢复他们。整个过程，
+是的，如果我们想向磁盘写入镜像，我们需要在挂起过程中resume它们。整个过程如下，
 
       Suspend part
       ~~~~~~~~~~~~
       running system, user asks for suspend-to-disk
-      用户发起 STD
+      系统运行中，用户发起STD
 
       user processes are stopped
       用户进程被停止
 
       suspend(PMSG_FREEZE): devices are frozen so that they don't interfere
       		      with state snapshot
-      设备被冻结从而不能干扰状态快照
+                            设备被冻结从而不能干扰状态快照
 
       state snapshot: copy of whole used memory is taken with interrupts disabled
-      中断被禁止后所有被使用的内存
+                      中断被禁止，并且所有使用中的内存被备份
 
       resume(): devices are woken up so that we can write image to swap
-      设备被唤醒，从而可以写镜像到交换区
+                设备被唤醒，从而可以写镜像到swap
 
       write image to swap
       写镜像到交换区
 
       suspend(PMSG_SUSPEND): suspend devices so that we can power off
-      挂起设备，从而可以断电了
+                             挂起设备，从而可以断电了
 
       turn the power off
       断电
@@ -265,32 +318,32 @@ disk. Whole sequence goes like
       (is actually pretty similar)
 
       running system, user asks for suspend-to-disk
-      运行系统，用户发起STD
+      系统运行，用户发起STD
 
       user processes are stopped (in common case there are none, but with resume-from-initrd, no one knows)
-      用户进程是停止的
+      用户进程是停止的（在一般情况下没有，但是对于resume-from-initrd，没有人知道）
 
       read image from disk
       从磁盘读镜像
 
       suspend(PMSG_FREEZE): devices are frozen so that they don't interfere
       		      with image restoration
-      设备被冻结，防止它们干扰镜像恢复
+                            设备被冻结，防止它们干扰镜像恢复
 
       image restoration: rewrite memory with image
-      用镜像重写内存
+                         用镜像重写内存
 
       resume(): devices are woken up so that system can continue
       thaw all user processes
-      设备被唤醒，系统接下来解冻所有用户进程
+                设备被唤醒，系统接下来解冻所有用户进程
 
 Q: What is this 'Encrypt suspend image' for?
 
 A: First of all: it is not a replacement for dm-crypt encrypted swap.
 It cannot protect your computer while it is suspended. Instead it does
 protect from leaking sensitive data after resume from suspend.
-首先，这不是dm-crypt encrypted swap的替代品。Encrypt suspend image不能在电脑
-挂起后保护你的电脑。相反它防止敏感数据在从挂起恢复之后泄漏。
+首先，这不是"dm-crypt encrypted swap"的替代品。"Encrypt suspend image"不能在电脑
+挂起后保护你的电脑。相反它防止敏感数据在resume from suspend之后泄漏。
 
 Think of the following: you suspend while an application is running
 that keeps sensitive data in memory. The application itself prevents
@@ -329,26 +382,31 @@ As a rule of thumb use encrypted swap to protect your data while your
 system is shut down or suspended. Additionally use the encrypted
 suspend image to prevent sensitive data from being stolen after
 resume.
+根据经验，使用加密的swap分区/文件可在系统关闭或挂起时保护您的数据。
+另外，使用加密的挂起映像可以防止敏感数据在恢复后被盗。
 
 Q: Can I suspend to a swap file?
-我可以挂起到交换文件吗
+   我可以挂起到交换文件吗
 
 A: Generally, yes, you can.  However, it requires you to use the "resume=" and
 "resume_offset=" kernel command line parameters, so the resume from a swap file
 cannot be initiated from an initrd or initramfs image.  See
 swsusp-and-swap-files.txt for details.
-当然可以。但是你需要使用"resume="和"resume_offset="内核参数。所以，不能从一个initrd或
+   当然可以。但是你需要使用"resume="和"resume_offset="内核参数。所以，不能从一个initrd或
 initramfs镜像中启动一个从交换文件中的恢复过程。
 
 Q: Is there a maximum system RAM size that is supported by swsusp?
+   是否有swsusp支持的最大系统RAM大小？
 
 A: It should work okay with highmem.
+   即使是高端内存swsusp也可以正常工作。
 
 Q: Does swsusp (to disk) use only one swap partition or can it use
 multiple swap partitions (aggregate them into one logical space)?
+   swsusp（到磁盘）只使用一个交换分区，还是可以使用多个交换分区（将它们聚合到一个逻辑空间）？
 
 A: Only one swap partition, sorry.
-STD必须使用一整个交换区，而不是多个。
+   STD必须使用一整个交换区，而不是多个。
 
 Q: If my application(s) causes lots of memory & swap space to be used
 (over half of the total system RAM), is it correct that it is likely
