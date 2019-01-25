@@ -6,20 +6,27 @@ Advanced Configuration and Power Interface (ACPI).  ACPI is the newer
 of the two technologies and puts power management in the hands of the
 operating system, allowing for more intelligent power management than
 is possible with BIOS controlled APM.
+如果您拥有相对较新的x86手机，台式机或服务器系统，则可能支持高级电源管理（APM）或高级配置和电源接口（ACPI）。
+ACPI是这两种技术中较新的技术，它将电源管理置于操作系统之下，与BIOS控制的APM相比，可实现更智能的电源管理。
 
 The best way to determine which, if either, your system supports is to
 build a kernel with both ACPI and APM enabled (as of 2.3.x ACPI is
 enabled by default).  If a working ACPI implementation is found, the
 ACPI driver will override and disable APM, otherwise the APM driver
 will be used.
+确定系统支持哪种（如果有）的最佳方法是构建同时启用ACPI和APM的内核（默认情况下启用2.3.x ACPI）。
+如果找到正在运行的ACPI实现，则ACPI驱动程序将覆盖并禁用APM，否则将使用APM驱动程序。
 
 No, sorry, you cannot have both ACPI and APM enabled and running at
 once.  Some people with broken ACPI or broken APM implementations
 would like to use both to get a full set of working features, but you
 simply cannot mix and match the two.  Only one power management
 interface can be in control of the machine at once.  Think about it..
+不，抱歉，您不能同时启用和运行ACPI和APM。一些人想要整合残缺的ACPI和APM来使它们来获得全套的工作特性，
+但你根本无法混合和匹配这两者。只有一个电源管理界面可以同时控制机器。想一想..
 
 User-space Daemons
+用户空间守护进程
 ------------------
 Both APM and ACPI rely on user-space daemons, apmd and acpid
 respectively, to be completely functional.  Obtain both of these
@@ -27,6 +34,8 @@ daemons from your Linux distribution or from the Internet (see below)
 and be sure that they are started sometime in the system boot process.
 Go ahead and start both.  If ACPI or APM is not available on your
 system the associated daemon will exit gracefully.
+APM和ACPI分别依赖用户空间守护进程apmd和acpid来完全发挥作用。从Linux发行版或Internet（见下文）中获取这两个守护进程，
+并确保它们在系统引导过程中的某个时间启动。来吧，打开两者。如果系统上没有ACPI或APM，则关联的守护程序将正常退出。
 
   apmd:   http://ftp.debian.org/pool/main/a/apmd/
   acpid:  http://acpid.sf.net/
