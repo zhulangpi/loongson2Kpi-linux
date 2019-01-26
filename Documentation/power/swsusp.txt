@@ -411,11 +411,15 @@ A: Only one swap partition, sorry.
 Q: If my application(s) causes lots of memory & swap space to be used
 (over half of the total system RAM), is it correct that it is likely
 to be useless to try to suspend to disk while that app is running?
+   如果我的应用程序导致大量内存和交换空间（超过整个系统RAM的一半）被使用，
+   那么在该应用程序运行时尝试STD可能是无用的吗？
 
 A: No, it should work okay, as long as your app does not mlock()
 it. Just prepare big enough swap partition.
+   不，它应该工作正常，只要你的应用程序没有mlock()它。准备足够大的交换分区。
 
 Q: What information is useful for debugging suspend-to-disk problems?
+   有哪些信息可用于调试STD的问题？
 
 A: Well, last messages on the screen are always useful. If something
 is broken, it is usually some kernel driver, therefore trying with as
@@ -424,26 +428,37 @@ suspend from console, preferably without X running. Booting with
 init=/bin/bash, then swapon and starting suspend sequence manually
 usually does the trick. Then it is good idea to try with latest
 vanilla kernel.
+   好吧，屏幕上最后的消息总是很有用。如果出问题了，通常是因为某些驱动，因此尽量少加载模块可能会有帮助。
+我也喜欢人们从控制台挂起，最好不要运行X。使用init=/bin/bash启动，然后手动使能交换区和启动挂起序列通常可以解决问题。
+然后尝试使用最新的内核是个好主意。
 
 Q: How can distributions ship a swsusp-supporting kernel with modular
 disk drivers (especially SATA)?
+   如何在内核带有模块化的磁盘驱动（尤其是SATA）的版本上运行swsusp？
 
 A: Well, it can be done, load the drivers, then do echo into
 /sys/power/disk/resume file from initrd. Be sure not to mount
 anything, not even read-only mount, or you are going to lose your
 data.
+   好吧，它可以完成。加载驱动程序，然后从initrd运行echo来写入到/sys/power/disk/resume文件。
+   一定不要挂在任何东西，只读的挂载也不行，否则你将丢失数据。
 
 Q: How do I make suspend more verbose?
+   如何让挂起更详细？
 
 A: If you want to see any non-error kernel messages on the virtual
 terminal the kernel switches to during suspend, you have to set the
 kernel console loglevel to at least 4 (KERN_WARNING), for example by
 doing
+   如果你想在虚拟终端上看到挂起期间的所有非错误内核信息，你至少要把内核控制台的log级别设置到4(KERN_WARNING)，通过如下方法：
 
-	# save the old loglevel
+	# save the old loglevel 
+	  保存老的log级别
 	read LOGLEVEL DUMMY < /proc/sys/kernel/printk
 	# set the loglevel so we see the progress bar.
+	  设置loglevel，以便我们看到进度条。
 	# if the level is higher than needed, we leave it alone.
+	  如果级别高于需要，我们不管它。
 	if [ $LOGLEVEL -lt 5 ]; then
 	        echo 5 > /proc/sys/kernel/printk
 		fi
@@ -454,29 +469,34 @@ doing
         RET=$?
         #
         # the logic here is:
+	  这里的逻辑是
         # if image_size > 0 (without kernel support, IMG_SZ will be zero),
+	  如果image_size > 0（如果内核不支持，IMG_SZ会是0）
         # then try again with image_size set to zero.
-	if [ $RET -ne 0 -a $IMG_SZ -ne 0 ]; then # try again with minimal image size
+	  然后再尝试将image_size设为0
+	if [ $RET -ne 0 -a $IMG_SZ -ne 0 ]; then # try again with minimal image size 
+					         #再次尝试最小的镜像大小
                 echo 0 > /sys/power/image_size
                 echo -n disk > /sys/power/state
                 RET=$?
         fi
 
 	# restore previous loglevel
+          恢复之前的log级别
 	echo $LOGLEVEL > /proc/sys/kernel/printk
 	exit $RET
 
 Q: Is this true that if I have a mounted filesystem on a USB device and
 I suspend to disk, I can lose data unless the filesystem has been mounted
 with "sync"?
-这是真的吗：如果我挂载了一个基于USB的文件系统并且STD，我会丢失数据除非文件系统被以"sync"选项挂载
+   这是真的吗：如果我挂载了一个基于USB的文件系统并且挂起到一个磁盘，我会丢失数据除非文件系统被以"sync"选项挂载
 
 A: That's right ... if you disconnect that device, you may lose data.
 In fact, even with "-o sync" you can lose data if your programs have
 information in buffers they haven't written out to a disk you disconnect,
 or if you disconnect before the device finished saving data you wrote.
-是的。如果你断开那个设备，你可能会丢失数据。事实上，即使"-o sync"，如果你的程序在缓冲区里有没写进
-断开的磁盘的数据，或者你在设备完成保存你写入的数据前断开，你也可能丢失数据。
+   是的。如果你断开那个设备，你可能会丢失数据。事实上，即使"-o sync"，如果你的程序在缓冲区里有没写进
+断开的磁盘的数据，或者你在设备保存完你写入的数据前断开，你也可能丢失数据。
 
 Software suspend normally powers down USB controllers, which is equivalent
 to disconnecting all USB devices attached to your system.
@@ -489,9 +509,9 @@ modes like "suspend-to-RAM" or "standby".  (Don't write "disk" to the
 hardware that can use these modes through software suspend, although in
 theory some systems might support "platform" modes that won't break the
 USB connections.
-当系统处于睡眠状态时，您的系统可能会很好地支持其USB控制器的低功耗模式，使用真正的睡眠模式（如“挂起到RAM”或“待机”）
-来维持连接。（不要将“disk”写入/sys/power/state文件;写入“standby”或“mem”。）
-我们没有看到任何可以通过软件挂起使用这些模式的硬件，尽管理论上有些系统可能支持不会破坏USB连接的“平台”模式。
+当系统处于睡眠状态时，您的系统可能会很好地支持其USB控制器的低功耗模式，使用真正的睡眠模式（如"STR"或“standby”）
+来维持连接。（不要将“disk”写入/sys/power/state文件;写入"standby"或"mem"。）
+我们没有看到任何可以通过软件挂起使用这些模式的硬件，尽管理论上有些系统可能支持不会破坏USB连接的"platform"模式。
 
 Remember that it's always a bad idea to unplug a disk drive containing a
 mounted filesystem.  That's true even when your system is asleep!  The
@@ -500,27 +520,36 @@ Firewire, CompactFlash, MMC, external SATA, or even IDE hotplug bays)
 before suspending; then remount them after resuming.
 请记住，拔掉包含已挂载文件系统的磁盘驱动器总是一个坏主意。即使您的系统处于睡眠状态也是如此！
 最安全的做法是在挂起之前卸载可移动介质上的所有文件系统（如USB，Firewire，CompactFlash，MMC，外部SATA，甚至是IDE热插拔托架）;
-然后在恢复后重新挂载它们。
+然后在resume后重新挂载它们。
 
 There is a work-around for this problem.  For more information, see
 Documentation/usb/persist.txt.
+有一个解决这个问题的方法。更多信息，请参阅Documentation/usb/persist.txt。
 
 Q: Can I suspend-to-disk using a swap partition under LVM?
+   我可以使用LVM下的交换分区挂起到磁盘吗？
 
 A: No. You can suspend successfully, but you'll not be able to
 resume. uswsusp should be able to work with LVM. See suspend.sf.net.
+   不可以。你可以成功挂起，但你无法resume。uswsusp应该能够使用LVM。请参见suspend.sf.net。
 
 Q: I upgraded the kernel from 2.6.15 to 2.6.16. Both kernels were
 compiled with the similar configuration files. Anyway I found that
 suspend to disk (and resume) is much slower on 2.6.16 compared to
 2.6.15. Any idea for why that might happen or how can I speed it up?
+   我将内核从2.6.15升级到2.6.16。两个内核都是用类似的配置文件编译。无论如何，
+   我发现挂起到磁盘（和resume）在2.6.16比2.6.15慢得多。对于为什么会发生这种情况或者我如何加速它的任何想法？
 
 A: This is because the size of the suspend image is now greater than
 for 2.6.15 (by saving more data we can get more responsive system
 after resume).
+   这是因为挂起镜像的大小现在大于2.6.15（通过保存更多数据，我们可以在恢复后获得响应更快的系统）。
 
 There's the /sys/power/image_size knob that controls the size of the
 image.  If you set it to 0 (eg. by echo 0 > /sys/power/image_size as
 root), the 2.6.15 behavior should be restored.  If it is still too
 slow, take a look at suspend.sf.net -- userland suspend is faster and
 supports LZF compression to speed it up further.
+有/sys/power/image_size控制镜像的大小。如果将其设置为0（例如，以root权限，通过echo 0 > /sys/power/image_size），
+则应该会恢复像2.6.15一样较快的速度。如果它仍然太慢，请查看
+suspend.sf.net - userland suspend更快，并支持LZF压缩以进一步加快速度。
