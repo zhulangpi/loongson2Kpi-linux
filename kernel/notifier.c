@@ -61,7 +61,7 @@ static int notifier_chain_unregister(struct notifier_block **nl,
 
 /**
  * notifier_call_chain - Informs the registered notifiers about an event.
- *						 通知注册的notifiers某一event
+ *                       通知注册的notifiers某一event
  *	@nl:		Pointer to head of the blocking notifier chain
  *	@val:		Value passed unmodified to notifier function
  *	@v:		Pointer passed unmodified to notifier function
@@ -339,7 +339,7 @@ EXPORT_SYMBOL_GPL(blocking_notifier_call_chain);
 
 /**
  *	raw_notifier_chain_register - Add notifier to a raw notifier chain
- *  							  为特定原始通知链添加notifier
+ *                                为特定原始通知链添加notifier
  *	@nh: Pointer to head of the raw notifier chain
  *       指向原始通知链的指针
  *	@n: New entry in notifier chain
