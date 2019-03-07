@@ -49,6 +49,17 @@
  *	During resume we pick up all swap_map_page structures into a list.
  */
 
+/*
+        struct swap_map_page被用于跟踪写入swap的每个页面，该结构被存储在swap中，
+        由next_swap字段链接在一起。
+        
+        该结构大小刚好为一个页面，在suspend期间，写swap的时候，swap_map_page一次只分配和填充一个，
+        因此内存中只需要提供一个页面作为成本，也就是一个一个的写入swap。
+        
+        在resume的时候，通过swap_map_page_list链表把读取的所有swap_map_page结构链在一起。
+*/
+
+
 #define MAP_PAGE_ENTRIES	(PAGE_SIZE / sizeof(sector_t) - 1)
 
 /*
@@ -68,6 +79,7 @@ static inline unsigned long reqd_free_pages(void)
 	return low_free_pages() / 2;
 }
 
+/* 整个结构的大小刚好也是一个page */
 struct swap_map_page {
 	sector_t entries[MAP_PAGE_ENTRIES];
 	sector_t next_swap;
@@ -93,14 +105,15 @@ struct swap_map_handle {
 	u32 crc32;
 };
 
+/* 整个结构正好占用一个page，实测，该结构位于swap分区的0地址（最前面） */
 struct swsusp_header {
 	char reserved[PAGE_SIZE - 20 - sizeof(sector_t) - sizeof(int) -
 	              sizeof(u32)];
 	u32	crc32;
 	sector_t image;
 	unsigned int flags;	/* Flags to pass to the "boot" kernel */
-	char	orig_sig[10];
-	char	sig[10];
+	char	orig_sig[10];   /* 用于备份sig字段 */
+	char	sig[10];        /* swap区的签名，如果该swap区被用于hibernate image，签名会被修改 */
 } __attribute__((packed));
 
 static struct swsusp_header *swsusp_header;
