@@ -245,6 +245,8 @@ static int mark_swapfiles(struct swap_map_handle *handle, unsigned int flags)
 			swsusp_header->crc32 = handle->crc32;
 		error = hib_bio_write_page(swsusp_resume_block,
 					swsusp_header, NULL);
+                /* 在2Kpi上，当使用U盘作为外存时，若不添加下句，上句对休眠镜像签名的写入不会被实际执行 */
+	        hib_bio_read_page(swsusp_resume_block, swsusp_header, NULL);
 	} else {
 		printk(KERN_ERR "PM: Swap header not found!\n");
 		error = -ENODEV;
