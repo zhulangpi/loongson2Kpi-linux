@@ -34,6 +34,7 @@
 #include "power.h"
 
 #define HIBERNATE_SIG	"S1SUSPEND"
+#define FASTBOOT_SIG    "FASTBOOT"
 
 /*
  *	The swap map is a data structure used for keeping track of each page
@@ -238,7 +239,10 @@ static int mark_swapfiles(struct swap_map_handle *handle, unsigned int flags)
 	if (!memcmp("SWAP-SPACE",swsusp_header->sig, 10) ||
 	    !memcmp("SWAPSPACE2",swsusp_header->sig, 10)) {
 		memcpy(swsusp_header->orig_sig,swsusp_header->sig, 10);
-		memcpy(swsusp_header->sig, HIBERNATE_SIG, 10);
+                if(fastboot)
+        		memcpy(swsusp_header->sig, FASTBOOT_SIG, 10);
+                else
+        		memcpy(swsusp_header->sig, HIBERNATE_SIG, 10);
 		swsusp_header->image = handle->first_sector;
 		swsusp_header->flags = flags;
 		if (flags & SF_CRC32_MODE)
@@ -1452,6 +1456,9 @@ int swsusp_check(void)
 		if (!memcmp(HIBERNATE_SIG, swsusp_header->sig, 10)) {
 			memcpy(swsusp_header->sig, swsusp_header->orig_sig, 10);
 			/* Reset swap signature now */
+			error = hib_bio_write_page(swsusp_resume_block,
+						swsusp_header, NULL);
+                else if(fastboot && !memcmp(FASTBOOT_SIG, swsusp_header->sig, 10)){
 			error = hib_bio_write_page(swsusp_resume_block,
 						swsusp_header, NULL);
 		} else {

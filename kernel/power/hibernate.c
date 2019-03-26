@@ -40,6 +40,7 @@ static char resume_file[256] = CONFIG_PM_STD_PARTITION;
 dev_t swsusp_resume_device;
 sector_t swsusp_resume_block;
 int in_suspend __nosavedata;
+int fastboot;
 
 enum {
 	HIBERNATION_INVALID,
@@ -1047,11 +1048,30 @@ static ssize_t reserved_size_store(struct kobject *kobj,
 
 power_attr(reserved_size);
 
+static ssize_t fastboot_show(struct kobject *kobj, struct kobj_attribute *attr,char *buf)
+{
+        return sprintf(buf, "%d\n", fastboot);
+}
+
+static ssize_t fastboot_store(struct kobject *kobj, struct kobj_attribute *attr,char *buf, size_t n)
+{
+        unsigned long in;
+
+        if (sscanf(buf, "%lu", &in) == 1) {
+                fastboot = in;
+                return n;
+        }
+        return -EINVAL;
+}
+
+power_attr(fastboot);
+
 static struct attribute * g[] = {
 	&disk_attr.attr,
 	&resume_attr.attr,
 	&image_size_attr.attr,
 	&reserved_size_attr.attr,
+        &fastboot_attr.attr,
 	NULL,
 };
 
@@ -1118,9 +1138,25 @@ static int __init resumedelay_setup(char *str)
 	return 1;
 }
 
+/*
+ * usage:
+ * #启动镜像的制作
+ * echo 1 > /sys/power/fastboot
+ * echo disk > /sys/power/state
+ * #设置镜像启动
+ * set append "console=ttyS0,115200 console=tty root=/dev/sda2 rootdelay=2 resume=/dev/sda3 resumedelay=2 fastboot=/dev/sda3"
+*/
+static int __init fastboot_setup(char* str)
+{
+        fastboot = 1;
+        strncpy( resume_file, str, 255 );
+        return 1;
+}
+
 __setup("noresume", noresume_setup);
 __setup("resume_offset=", resume_offset_setup);
 __setup("resume=", resume_setup);
 __setup("hibernate=", hibernate_setup);
 __setup("resumewait", resumewait_setup);
 __setup("resumedelay=", resumedelay_setup);
+__setup("fastboot=", fastboot_setup);
