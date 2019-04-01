@@ -3,6 +3,8 @@
 #include <linux/utsname.h>
 #include <linux/freezer.h>
 
+
+/* 镜像头，占用一个页 */
 struct swsusp_info {
 	struct new_utsname	uts;
 	u32			version_code;
@@ -109,7 +111,8 @@ extern int hibernate_preallocate_memory(void);
  *	This may allow us to change the internal structure of the image
  *	in the future with considerably less effort.
  */
-
+/* cur: 每操作一个镜像页，自增一
+ * buffer: 当前操作镜像页对应内存的地址 */
 struct snapshot_handle {
 	unsigned int	cur;	/* number of the block of PAGE_SIZE bytes the
 				 * next operation will refer to (ie. current)

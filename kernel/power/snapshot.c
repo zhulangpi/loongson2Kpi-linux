@@ -1710,7 +1710,7 @@ int snapshot_read_next(struct snapshot_handle *handle)
 		if (!buffer)
 			return -ENOMEM;
 	}
-	if (!handle->cur) {
+	if (!handle->cur) {     /* 此时还没有swap_map_page实例，先分配并初始化一个镜像头实例 */
 		int error;
 
 		error = init_header((struct swsusp_info *)buffer);
@@ -1721,7 +1721,7 @@ int snapshot_read_next(struct snapshot_handle *handle)
 		memory_bm_position_reset(&copy_bm);
 	} else if (handle->cur <= nr_meta_pages) {
 		clear_page(buffer);
-		pack_pfns(buffer, &orig_bm);
+		pack_pfns(buffer, &orig_bm);    /* 向buffer指向的内存页内填充PFN构成的数组 */
 	} else {
 		struct page *page;
 

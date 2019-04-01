@@ -82,10 +82,11 @@ static inline unsigned long reqd_free_pages(void)
 
 /* 整个结构的大小刚好也是一个page */
 struct swap_map_page {
-	sector_t entries[MAP_PAGE_ENTRIES];
-	sector_t next_swap;
+	sector_t entries[MAP_PAGE_ENTRIES];     /* 记录页面存放的扇区号 */
+	sector_t next_swap;     /*下一个swap_map_page实例的存储扇区号 */
 };
 
+/* 只在读镜像时，该结构用于构建swap_map_page实例的链表 */
 struct swap_map_page_list {
 	struct swap_map_page *map;
 	struct swap_map_page_list *next;
@@ -97,11 +98,11 @@ struct swap_map_page_list {
  */
 
 struct swap_map_handle {
-	struct swap_map_page *cur;
-	struct swap_map_page_list *maps;
-	sector_t cur_swap;
-	sector_t first_sector;
-	unsigned int k;
+	struct swap_map_page *cur;      /* 当前处理的swap_map_page实例 */
+	struct swap_map_page_list *maps;        /* 当前遍历到的swap_map_page实例链表的节点 */
+	sector_t cur_swap;              /* 当前处理的swap页的扇区号 */
+	sector_t first_sector;          /* 整个镜像第一个页的扇区号 */
+	unsigned int k;         /* 记录swap_map_page实例中已填充了多少entries */
 	unsigned long reqd_free_pages;
 	u32 crc32;
 };
@@ -111,7 +112,7 @@ struct swsusp_header {
 	char reserved[PAGE_SIZE - 20 - sizeof(sector_t) - sizeof(int) -
 	              sizeof(u32)];
 	u32	crc32;
-	sector_t image;
+	sector_t image;         /* 记录镜像存储的首个扇区号 */
 	unsigned int flags;	/* Flags to pass to the "boot" kernel */
 	char	orig_sig[10];   /* 用于备份sig字段 */
 	char	sig[10];        /* swap区的签名，如果该swap区被用于hibernate image，签名会被修改 */
@@ -124,6 +125,7 @@ static struct swsusp_header *swsusp_header;
  *	swap pages, so that they can be freed in case of an error.
  */
 
+/* 这个红黑树用来描述已经分配的swap区的页，start和end间可以有很多个swap页*/
 struct swsusp_extent {
 	struct rb_node node;
 	unsigned long start;
@@ -197,7 +199,7 @@ sector_t alloc_swapdev_block(int swap)
  *	It also frees the extents used to register which swap entries had been
  *	allocated.
  */
-
+/* 释放swap区中的已保存的镜像页，保存一半失败时被调用 */
 void free_all_swap_pages(int swap)
 {
 	struct rb_node *node;
@@ -365,6 +367,7 @@ err_close:
 	return ret;
 }
 
+/* 将buf指向的页写入swap */
 static int swap_write_page(struct swap_map_handle *handle, void *buf,
 				struct bio **bio_chain)
 {
@@ -373,21 +376,22 @@ static int swap_write_page(struct swap_map_handle *handle, void *buf,
 
 	if (!handle->cur)
 		return -EINVAL;
-	offset = alloc_swapdev_block(root_swap);
-	error = write_page(buf, offset, bio_chain);
+	offset = alloc_swapdev_block(root_swap);        /* 从交换区分配一个页，一页相当于若干个块，一块相当于若干个扇区，返回首扇区号 */
+	error = write_page(buf, offset, bio_chain);     /* 将待写入的页写入交换区页 */
 	if (error)
 		return error;
+	/* 将刚写入的扇区号保存到当前的swap_map_page实例的entries数组中，当前的swap_map_page实例由swap_map_handle实例指向 */
 	handle->cur->entries[handle->k++] = offset;
-	if (handle->k >= MAP_PAGE_ENTRIES) {
-		offset = alloc_swapdev_block(root_swap);
+	if (handle->k >= MAP_PAGE_ENTRIES) {            /* 如果当前的一个swap_map_page实例已经填充完了 */
+		offset = alloc_swapdev_block(root_swap);        /* 再分配一个交换区页给下一个swap_map_page结构 */
 		if (!offset)
 			return -ENOSPC;
-		handle->cur->next_swap = offset;
-		error = write_page(handle->cur, handle->cur_swap, bio_chain);
+		handle->cur->next_swap = offset;        /* 先将新交换区页的扇区号保存在老swap_map_page结构中 */
+		error = write_page(handle->cur, handle->cur_swap, bio_chain);   /* 将老swap_map_page实例保存到swap页中*/
 		if (error)
 			goto out;
-		clear_page(handle->cur);
-		handle->cur_swap = offset;
+		clear_page(handle->cur);        /* 新老swap_map_page实例在ram中共用一个page */
+		handle->cur_swap = offset;      /* 保存交换区中新swap_map_page的扇区号 */
 		handle->k = 0;
 
 		if (bio_chain && low_free_pages() <= handle->reqd_free_pages) {
@@ -874,7 +878,8 @@ out_finish:
  *	The following functions allow us to read data using a swap map
  *	in a file-alike way
  */
-
+/* swap_header 指的是读取镜像时，RAM中构成链表的所有swap_map_page实例 */
+/* 将内存中读取镜像时生成的swap_map_page实例及其链表节点全部释放 */
 static void release_swap_reader(struct swap_map_handle *handle)
 {
 	struct swap_map_page_list *tmp;
@@ -889,6 +894,7 @@ static void release_swap_reader(struct swap_map_handle *handle)
 	handle->cur = NULL;
 }
 
+/* 读取镜像时，先在ram中构建swap_map_page结构的链表 */
 static int get_swap_reader(struct swap_map_handle *handle,
 		unsigned int *flags_p)
 {
@@ -915,7 +921,7 @@ static int get_swap_reader(struct swap_map_handle *handle,
 			handle->maps = tmp;
 		if (last)
 			last->next = tmp;
-		last = tmp;
+		last = tmp;     /* last:上一个，而不是最后一个*/
 
 		tmp->map = (struct swap_map_page *)
 		           __get_free_page(__GFP_WAIT | __GFP_HIGH);
@@ -936,6 +942,7 @@ static int get_swap_reader(struct swap_map_handle *handle,
 	return 0;
 }
 
+/* 将handle当前指向的swap_map_page结构中的entries保存的swap页写入buf，每读完一个swap_map_page实例就释放其及其链表节点 */
 static int swap_read_page(struct swap_map_handle *handle, void *buf,
 				struct bio **bio_chain)
 {
@@ -1412,15 +1419,15 @@ int swsusp_read(unsigned int *flags_p)
 	struct swsusp_info *header;
 
 	memset(&snapshot, 0, sizeof(struct snapshot_handle));
-	error = snapshot_write_next(&snapshot);
+	error = snapshot_write_next(&snapshot);         /* 初始化snapshot_handle实例*/
 	if (error < PAGE_SIZE)
 		return error < 0 ? error : -EFAULT;
 	header = (struct swsusp_info *)data_of(snapshot);
-	error = get_swap_reader(&handle, flags_p);
+	error = get_swap_reader(&handle, flags_p);      /* 构建swap_map_page实例链表*/
 	if (error)
 		goto end;
 	if (!error)
-		error = swap_read_page(&handle, header, NULL);
+		error = swap_read_page(&handle, header, NULL);  /* 读镜像头 */
 	if (!error) {
 		error = (*flags_p & SF_NOCOMPRESS_MODE) ?
 			load_image(&handle, &snapshot, header->pages - 1) :
@@ -1439,6 +1446,7 @@ end:
  *      swsusp_check - Check for swsusp signature in the resume device
  */
 
+/* 检查交换区头签名并恢复，而非镜像头，交换区头指明了该swap区被用于保存休眠镜像 */
 int swsusp_check(void)
 {
 	int error;
@@ -1522,6 +1530,7 @@ int swsusp_unmark(void)
 }
 #endif
 
+/* 开机时创建 swsusp_header 交换区头实例*/
 static int swsusp_header_init(void)
 {
 	swsusp_header = (struct swsusp_header*) __get_free_page(GFP_KERNEL);
