@@ -274,6 +274,7 @@ static void smpboot_destroy_threads(struct smp_hotplug_thread *ht)
  *
  * Creates and starts the threads on all online cpus.
  */
+/* 创建与cpu hotplug相关的per_cpu线程(watchdog, softirq, migration)，并挂到hotplug_threads链表头中 */
 int smpboot_register_percpu_thread(struct smp_hotplug_thread *plug_thread)
 {
 	unsigned int cpu;

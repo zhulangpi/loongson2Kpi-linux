@@ -36,7 +36,7 @@ provisioning reasons, or for RAS purposes to keep an offending CPU off
 system execution path. Hence the need for CPU hotplug support in the
 Linux kernel.
 这种高级特性需要内核在必要时能移除正在使用的CPU.[provisioning reasons?]
-比如，为了RAS的需要，必须将一个执行恶意代码的CPU保持在系统执行路径之外。
+比如，为了RAS(Reliability, Availability and Serviceability)的需要，必须将一个执行恶意代码的CPU保持在系统执行路径之外。
 因此，在Linux内核中需要支持CPU热插拔技术。
 
 A more novel use of CPU-hotplug support is its use today in suspend

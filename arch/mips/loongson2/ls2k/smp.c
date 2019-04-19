@@ -102,6 +102,7 @@ void loongson3_send_irq_by_ipi(int cpu, int irqs)
         loongson3_ipi_write32((u32)(irqs << IPI_IRQ_OFFSET), (void *)(base + IPI_OFF_SET));
 }
 
+/* 在plat_irq_dispatch()中被分发，对应于中断源Cause.IP6 */
 void loongson3_ipi_interrupt(struct pt_regs *regs)
 {
 	int i, cpu = smp_processor_id();
@@ -122,6 +123,7 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 		smp_call_function_interrupt();
 	}
 
+        /*  只有boot CPU才收到的IPI，用于给别的CPU共享c0的count计数值 */
 	if (action & SMP_ASK_C0COUNT) {
 		BUG_ON(cpu != 0);
 		c0count = read_c0_count();
@@ -301,10 +303,11 @@ static int loongson3_cpu_disable(void)
 
 	/* 把当前中断状态保存到flags中，然后禁用当前处理器上的中断发送。注意, flags 被直接传递, 而不是通过指针来传递。*/
 	local_irq_save(flags);
-
+        
+        /* 取消linux irq 对该CPU的分发 */
 	fixup_irqs();
 
-	/* 用flags恢复中断状态  */
+	/* 用flags恢复中断状态，将未处理完的中断处理完，CPU被offline后就处理不了了 */
 	local_irq_restore(flags);
 	
 	/* 这里刷cache和tlb是因为该CPU被失能了，所以要把可能修改了的数据刷回RAM？*/

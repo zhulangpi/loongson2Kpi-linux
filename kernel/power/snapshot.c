@@ -1667,7 +1667,7 @@ static int init_header(struct swsusp_info *info)
  *	pack_pfns - pfns corresponding to the set bits found in the bitmap @bm
  *	are stored in the array @buf[] (1 page at a time)
  */
-
+/* 把 bm 中所有置位的页的PFN保存到一个页面大小的数组中 */
 static inline void
 pack_pfns(unsigned long *buf, struct memory_bitmap *bm)
 {
@@ -1699,6 +1699,7 @@ pack_pfns(unsigned long *buf, struct memory_bitmap *bm)
  *	any more.
  */
 
+/* 在suspend时被调用，用于读取RAM中的页，再调用swap_write_page将其写入swap区 */
 int snapshot_read_next(struct snapshot_handle *handle)
 {
 	if (handle->cur > nr_meta_pages + nr_copy_pages)
@@ -1710,7 +1711,7 @@ int snapshot_read_next(struct snapshot_handle *handle)
 		if (!buffer)
 			return -ENOMEM;
 	}
-	if (!handle->cur) {     /* 此时还没有swap_map_page实例，先分配并初始化一个镜像头实例 */
+	if (!handle->cur) {     /* 此时还没有swap_map_page实例，先分配并初始化一个镜像头实例，并将地址保存给snapshot_handle的buffer中 */
 		int error;
 
 		error = init_header((struct swsusp_info *)buffer);
@@ -1719,10 +1720,10 @@ int snapshot_read_next(struct snapshot_handle *handle)
 		handle->buffer = buffer;
 		memory_bm_position_reset(&orig_bm);
 		memory_bm_position_reset(&copy_bm);
-	} else if (handle->cur <= nr_meta_pages) {
+	} else if (handle->cur <= nr_meta_pages) {      /* 处理元数据页 */
 		clear_page(buffer);
-		pack_pfns(buffer, &orig_bm);    /* 向buffer指向的内存页内填充PFN构成的数组 */
-	} else {
+		pack_pfns(buffer, &orig_bm);    /* 向buffer指向的缓存页内填充PFN构成的数组，这些都是需要保存的页面的PFN */
+	} else {        /* 处理内存页面，handle->buffer逐个指向需要保存的内存页面，对于高端内存建立临时映射后，将高端内存的内容赋值到缓存页buffer中*/
 		struct page *page;
 
 		page = pfn_to_page(memory_bm_next_pfn(&copy_bm));

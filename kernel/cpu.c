@@ -297,7 +297,7 @@ void clear_tasks_mm_cpumask(int cpu)
 	rcu_read_unlock();
 }
 
-/* 打印某个cpu上所有的进程？ */
+/* 检查所有运行的进程，如果有还在该cpu上的，打印警告 */
 static inline void check_for_tasks(int cpu)
 {
 	struct task_struct *p;
@@ -329,7 +329,7 @@ static int __ref take_cpu_down(void *_param)
 
 	/* Ensure this CPU doesn't handle any more interrupts. */
 	/* 与__cpu_die()类似，内部执行loongson3_cpu_disable()@arch/mips/loongson2/ls2k/smp.c 
-	   关闭了该CPU的中断使能位 */
+	   关闭了该CPU的中断使能位，更重要的是配置中断控制器，使其不再向该cpu分发中断信号 */
 	err = __cpu_disable();
 	if (err < 0)
 		return err;
@@ -370,9 +370,10 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 				__func__, cpu);
 		goto out_release;
 	}
-	/* stop是进程生命终结，park是暂停。暂停特定CPU上的内核线程（per-cpu线程？） */
+	/* stop是进程生命终结，park是暂停。暂停特定CPU上的与CPU hotplug相关的per-cpu内核线程 */
 	smpboot_park_threads(cpu);
 
+        /* 让指定的cpu原子的运行take_cpu_down函数 */
 	err = __stop_machine(take_cpu_down, &tcd_param, cpumask_of(cpu));
 	if (err) {
 		/* CPU didn't die: tell everyone.  Can't complain. */
@@ -394,7 +395,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 	while (!idle_cpu(cpu))
 		cpu_relax();
 
-	/* This actually kills the CPU. */
+	/* This actually kills the CPU. 再次确认CPU已经被逻辑移除。实施架构相关的断电操作，使得CPU可以被物理移除 */
 	__cpu_die(cpu);
 
 	/* CPU is completely dead: tell everyone.  Too late to complain. */
