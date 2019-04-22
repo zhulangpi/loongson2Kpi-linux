@@ -392,6 +392,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 	 */
 	/* kernel/sched/core.c中migration_call()函数是cpu notifier的回调函数，其中的CPU_DYING分支负责从CPU移除所有的可运行任务，
 	   使得只剩下idle任务，即迁移线程完成了stop_machine事务。接下来等待stop线程"离开"？ */
+        /* take_cpu_down所在线程独占CPU，后面跟着个最高优先级的FIFO策略的idle线程，等待idle运行在所在CPU上 */
 	while (!idle_cpu(cpu))
 		cpu_relax();
 
@@ -444,13 +445,13 @@ static int __cpuinit _cpu_up(unsigned int cpu, int tasks_frozen)
 		ret = -EINVAL;
 		goto out;
 	}
-
+        /* 创建对应CPU的idle线程 */
 	idle = idle_thread_get(cpu);
 	if (IS_ERR(idle)) {
 		ret = PTR_ERR(idle);
 		goto out;
 	}
-
+        /* 创建对应CPU上的热插拔相关的per-cpu线程 */
 	ret = smpboot_create_threads(cpu);
 	if (ret)
 		goto out;

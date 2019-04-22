@@ -104,6 +104,7 @@
 #else
 	mfc0	t0, CP0_STATUS
 	or	t0, ST0_CU0|\set|0x1f|\clr
+        /*对应位清零，屏蔽中断，处理器模式核心态*/
 	xor	t0, 0x1f|\clr
 	mtc0	t0, CP0_STATUS
 	.set	noreorder

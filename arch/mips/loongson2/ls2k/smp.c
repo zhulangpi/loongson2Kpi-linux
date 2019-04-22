@@ -168,6 +168,7 @@ void __cpuinit loongson3_init_secondary(void)
 
 	for (i = 0; i < num_possible_cpus(); i++) {
 		unsigned long base = LOONGSON2K_TO_BASE(cpu_logical_map(i));
+                /*32位使能寄存器，控制对应中断位有效，另一个32位状态寄存器任何一位置位，且对应的IPI_OFF_ENABLE寄存器对应位置位，则处理器核间中断位被置位*/
 		loongson3_ipi_write32(0xffffffff,(void *)(base + IPI_OFF_ENABLE));
 	}
 
@@ -177,7 +178,9 @@ void __cpuinit loongson3_init_secondary(void)
 
 	i = 0;
 	core0_c0count[cpu] = 0;
+        /*要求获取CPU0的c0count*/
 	loongson3_send_ipi_single(0, SMP_ASK_C0COUNT);
+        /*等待获取到，同时记录大概延迟*/
 	while (!core0_c0count[cpu]) {
 		i++;
 		cpu_relax();
@@ -349,7 +352,7 @@ void loongson3a_play_dead(int *state_addr)
 		"      bnez  $t1, 1b                     \n"
 		"      addiu $t1, $t1, -1                \n"
 		"      li    $t0, 0x7                    \n" /* *state_addr = CPU_DEAD; */
-		"      sw    $t0, 0($a0)                 \n" /* 内存地址$a0+0处写$t0(0x07)  */
+		"      sw    $t0, 0($a0)                 \n" /* 内存地址$a0+0(即state_addr)处写$t0(0x07)(即CPU_DEAD) */
 		"      sync                              \n" /* sync前面发起的存取操作，sync后的指令都可见  */
 		"      cache 21, 0($a0)                  \n" /* flush entry of *state_addr */
 		"      .set pop                          \n"); /* restore saved settings  */
@@ -371,7 +374,7 @@ void loongson3a_play_dead(int *state_addr)
 		"1:    li    $a0, 0x100                  \n"  /* wait for init loop */
 		"2:    bnez  $a0, 2b                     \n"  /* idle loop */
 		"      addiu $a0, -1                     \n"  /* 该指令位于分支延时槽，与前面两行形成0x100次循环 */
-		/* 因为整个函数由待脱机CPU执行，这里通过mailbox得到的PC可能是idle进程，最后CPU会跳转到该PC */
+		/* 因为整个函数由待脱机CPU执行，这里通过mailbox得到的PC应该是最初初始化该CPU时传送的地址，该地址位于CKSEG1 (uncached and unmmaped) */
 		"      lw    $v0, 0x20($t0)              \n"  /* get PC via mailbox */
 		"      beqz  $v0, 1b                     \n"
 		"      nop                               \n"
@@ -608,13 +611,20 @@ void play_dead(void)
 	play_dead_at_ckseg1(state_addr);
 }
 
+
+#define FREQSCALE       (0x1fe104d0)
+#define CORE_EN(m)        (1<<(32+m))
 void loongson3_disable_clock(int cpu)
 {
+        ls2k_writeq((~CORE_EN(cpu))&ls2k_readq(FREQSCALE),FREQSCALE);
 }
 
 void loongson3_enable_clock(int cpu)
 {
+        ls2k_writeq((CORE_EN(cpu))|ls2k_readq(FREQSCALE),FREQSCALE);
 }
+#undef FREQSCALE
+#undef CORE_EN
 
 #define CPU_POST_DEAD_FROZEN	(CPU_POST_DEAD | CPU_TASKS_FROZEN)
 static int __cpuinit loongson3_cpu_callback(struct notifier_block *nfb,

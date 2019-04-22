@@ -108,8 +108,11 @@ asmlinkage __cpuinit void start_secondary(void)
 		__cpu_name[smp_processor_id()] = __cpu_name[0];
 	else
 #endif /* CONFIG_MIPS_MT_SMTC */
+        /* 主要是填充struct cpuinfo_mips这个结构体实例 */
 	cpu_probe();
+        /*初始化异常与中断相关寄存器，设置传送过来的idle进程的地址空间为init_mm*/
 	per_cpu_trap_init(false);
+        /*==>r4k_clockevent_init()*/
 	mips_clockevent_init();
 	mp_ops->init_secondary();
 	if (system_state == SYSTEM_BOOTING)
@@ -124,9 +127,9 @@ asmlinkage __cpuinit void start_secondary(void)
 	preempt_disable();
 	cpu = smp_processor_id();
 	cpu_data[cpu].udelay_val = loops_per_jiffy;
-
+        /*发送CPU_STARTING_FROZEN到cpu_chain，已boot的CPU会执行很多callback*/
 	notify_cpu_starting(cpu);
-	
+	/*Bitmask of started secondaries 置位对应的CPU*/
 	cpu_set(cpu, cpu_callin_map);
 
 	synchronise_count_slave(cpu);
