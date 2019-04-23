@@ -374,7 +374,7 @@ void loongson3a_play_dead(int *state_addr)
 		"1:    li    $a0, 0x100                  \n"  /* wait for init loop */
 		"2:    bnez  $a0, 2b                     \n"  /* idle loop */
 		"      addiu $a0, -1                     \n"  /* 该指令位于分支延时槽，与前面两行形成0x100次循环 */
-		/* 因为整个函数由待脱机CPU执行，这里通过mailbox得到的PC应该是最初初始化该CPU时传送的地址，该地址位于CKSEG1 (uncached and unmmaped) */
+		/*循环查询mailbox0，脱机时，CPU死在该循环内；脱机后使能时，CPU1寄存器不丢失，继续从此处运行，循环等待查询，等待CPU0发送运行地址过来 */
 		"      lw    $v0, 0x20($t0)              \n"  /* get PC via mailbox */
 		"      beqz  $v0, 1b                     \n"
 		"      nop                               \n"
