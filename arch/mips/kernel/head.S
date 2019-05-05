@@ -103,6 +103,7 @@
 	mtc0	t0, CP0_STATUS
 #else
 	mfc0	t0, CP0_STATUS
+        /*给CU0位，第五位，以及set和clr指定位置位*/
 	or	t0, ST0_CU0|\set|0x1f|\clr
         /*对应位清零，屏蔽中断，处理器模式核心态*/
 	xor	t0, 0x1f|\clr
@@ -169,8 +170,10 @@ FEXPORT(__kernel_entry)
 
 NESTED(kernel_entry, 16, sp)			# kernel entry point
 
+        /*设置cp0寄存器 1.大物理地址支持 2自动写合并*/
 	kernel_entry_setup			# cpu specific setup
 
+        /*#1.处理器核心态 2.开64位内核段和XTLB Refile异常向量 3.使能CP0 4.关中断*/
 	setup_c0_status_pri
 
 	/* We might not get launched at the address the kernel is linked to,
@@ -204,7 +207,7 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	PTR_ADDIU	t0, LONGSIZE
 	LONG_S		zero, (t0)
 	bne		t0, t1, 1b
-
+        /*将bootloader放在a0-a3中的参数保存到全局变量中*/
 	LONG_S		a0, fw_arg0		# firmware arguments
 	LONG_S		a1, fw_arg1
 	LONG_S		a2, fw_arg2
@@ -235,7 +238,7 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	PTR_LA		$28, init_thread_union
 	/* Set the SP after an empty pt_regs.  */
 	PTR_LI		sp, _THREAD_SIZE - 32 - PT_SIZE
-	PTR_ADDU	sp, $28
+	PTR_ADDU	sp, $28                 #设置堆栈的初始位置，sp = $28(gp) + sp，相当于base + offset
 	back_to_back_c0_hazard
 	set_saved_sp	sp, t0, t1
 	PTR_SUBU	sp, 4 * SZREG		# init stack pointer
