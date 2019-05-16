@@ -47,6 +47,7 @@
 #define LS2K_PWM3_IRQ			(27 + LS2K_IRQ_OFF)
 #define LS2K_DC_IRQ			(28 + LS2K_IRQ_OFF)
 #define LS2K_GPU_IRQ			(29 + LS2K_IRQ_OFF)
+#define LS2K_VPU_IRQ			(30 + LS2K_IRQ_OFF)
 #define LS2K_SDIO_IRQ			(31 + LS2K_IRQ_OFF)
 
 /* group 1 */

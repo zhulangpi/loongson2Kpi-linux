@@ -284,7 +284,7 @@
 #define LS2K_INT_MSI_TRIGGER_1		(LS2K_CHIP_CFG_REG_BASE + 0x14f0)
 #define LS2K_INT_MSI_TRIGGER_EN_1	(LS2K_CHIP_CFG_REG_BASE + 0x14f4)
 //#define LS2K_IRQ_MASK			0xdf8ff0ffb03ff3ff
-#define LS2K_IRQ_MASK			0xff8ff0ffb03ff3ff
+#define LS2K_IRQ_MASK			0xff8ff0fff03ff3ff
 
 /* REG ACCESS*/
 #define ls2k_readb(addr)		(*(volatile unsigned char *)TO_UNCAC(addr))

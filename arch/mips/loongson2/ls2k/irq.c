@@ -62,6 +62,7 @@ void __init ls2k_init_irq(void)
 
 	INT_router_regs_ohci = 0x21;     //IP3
 
+	INT_router_regs_vpu = 0x81;    //IP5
 }
 
 asmlinkage void plat_irq_dispatch(void)

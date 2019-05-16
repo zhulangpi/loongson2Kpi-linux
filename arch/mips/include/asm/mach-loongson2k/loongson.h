@@ -56,6 +56,7 @@ extern void mach_irq_dispatch(unsigned int pending);
 #define INT_router_regs_uart0			*(volatile unsigned char *)(IO_base_regs_addr + 0x1400)
 #define INT_router_regs_gmac0			*(volatile unsigned char *)(IO_base_regs_addr + 0x140c)
 #define INT_router_regs_gpu			*(volatile unsigned char *)(IO_base_regs_addr + 0x141d)
+#define INT_router_regs_vpu			*(volatile unsigned char *)(IO_base_regs_addr + 0x141e)
 #define INT_router_regs_ahci			*(volatile unsigned char *)(IO_base_regs_addr + 0x1413)
 #define INT_router_regs_ohci			*(volatile unsigned char *)(IO_base_regs_addr + 0x1453)
 
