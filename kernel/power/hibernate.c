@@ -1048,12 +1048,15 @@ static ssize_t reserved_size_store(struct kobject *kobj,
 
 power_attr(reserved_size);
 
-static ssize_t fastboot_show(struct kobject *kobj, struct kobj_attribute *attr,char *buf)
+static ssize_t fastboot_show(struct kobject *kobj,
+                             struct kobj_attribute *attr,char *buf)
 {
-        return sprintf(buf, "%d\n", fastboot);
+        return sprintf(buf, "%lu\n", fastboot);
 }
 
-static ssize_t fastboot_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t n)
+static ssize_t fastboot_store(struct kobject *kobj,
+                              struct kobj_attribute *attr,
+                              const char *buf, size_t n)
 {
         unsigned long in;
 

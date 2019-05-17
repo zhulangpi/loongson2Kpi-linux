@@ -1608,6 +1608,8 @@ config CPU_LOONGSON2K
 	select WEAK_REORDERING_BEYOND_LLSC
 	select CPU_HAS_PREFETCH
 	select GENERIC_GPIO
+        select CPU_SUPPORTS_CPUFREQ
+        select HAVE_CLK
 	help
 		The Loongson 2k processor implements the MIPS III instruction set
 		with many extensions.

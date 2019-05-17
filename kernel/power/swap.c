@@ -1466,7 +1466,7 @@ int swsusp_check(void)
 			/* Reset swap signature now */
 			error = hib_bio_write_page(swsusp_resume_block,
 						swsusp_header, NULL);
-                else if(fastboot && !memcmp(FASTBOOT_SIG, swsusp_header->sig, 10)){
+                } else if(fastboot && !memcmp(FASTBOOT_SIG, swsusp_header->sig, 10)){
 			error = hib_bio_write_page(swsusp_resume_block,
 						swsusp_header, NULL);
 		} else {

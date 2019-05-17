@@ -251,6 +251,19 @@ config LOONGSON2_CPUFREQ
 
 	  If in doubt, say N.
 
+config LOONGSON2K_CPUFREQ
+        tristate "Loongson2K CPUFreq Driver"
+        select CPU_FREQ_TABLE
+        depends on CPU_LOONGSON2K
+        help
+          This option adds a CPUFreq driver for loongson processors which
+          support software configurable cpu frequency.
+
+          Loongson2K1000 and it's successors support this feature.
+
+          For details, take a look at <file:Documentation/cpu-freq/>.
+
+          If in doubt, say N.
 endmenu
 
 menu "PowerPC CPU frequency scaling drivers"
