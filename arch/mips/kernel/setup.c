@@ -725,29 +725,29 @@ static void __init resource_init(void)
 
 void __init setup_arch(char **cmdline_p)
 {
-	cpu_probe();
-	prom_init();
+	cpu_probe();                //cpu寄存器信息的读取与配置
+	prom_init();                //解析PMON传递的参数并填充bootmem内存信息数组
 
 #ifdef CONFIG_EARLY_PRINTK
-	setup_early_printk();
+	setup_early_printk();       //注册早期的简单控制台，底层调用简单的串口输出
 #endif
-	cpu_report();
-	check_bugs_early();
+	cpu_report();               //CPU, FPU版本信息打印
+	check_bugs_early();         //CPU乘法和移位功能检测，daddiu指令检测
 
 #if defined(CONFIG_VT)
 #if defined(CONFIG_VGA_CONSOLE)
 	conswitchp = &vga_con;
 #elif defined(CONFIG_DUMMY_CONSOLE)
-	conswitchp = &dummy_con;
+	conswitchp = &dummy_con;    //空的console
 #endif
 #endif
 
-	arch_mem_init(cmdline_p);
+	arch_mem_init(cmdline_p);   //mips结构相关的内存设置，初始化bootmem，页表初始化，内存节点描述符及内存域描述符初始化
 
-	resource_init();
-	plat_smp_setup();
+	resource_init();            //建立地址空间的树状描述结构，包含对地址空间内IO资源和内存资源的描述
+	plat_smp_setup();           //2K1000B的从核使能
 
-	cpu_cache_init();
+	cpu_cache_init();           //cache初始化
 }
 
 unsigned long kernelsp[NR_CPUS];
