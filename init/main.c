@@ -777,15 +777,15 @@ static void __init do_initcalls(void)
  */
 static void __init do_basic_setup(void)
 {
-	cpuset_init_smp();
-	usermodehelper_init();
-	shmem_init();
-	driver_init();
-	init_irq_proc();
-	do_ctors();
+	cpuset_init_smp();              //初始化内核control group的cpuset子系统
+	usermodehelper_init();          //创建khelper单线程工作队列，用于协助新建和运行用户空间程序
+	shmem_init();                   //初始化共享内存
+	driver_init();                  //devtmpfs文件系统注册，初始化设备模型，建立sysfs文件系统内设备、驱动、总线的基本层次关系
+	init_irq_proc();                //创建/proc/irq目录, 并初始化系统中所有中断对应的子目录
+	do_ctors();                     //执行内核的构造函数，2K1000B do nothing
 	usermodehelper_enable();
-	do_initcalls();
-	random_int_secret_init();
+	do_initcalls();                 //调用level 0到level 7的initcall函数
+	random_int_secret_init();       //初始化随机数生成池
 }
 
 static void __init do_pre_smp_initcalls(void)
@@ -819,16 +819,17 @@ static noinline void __init kernel_init_freeable(void);
 
 static int __ref kernel_init(void *unused)
 {
-	kernel_init_freeable();
+	kernel_init_freeable();                 //等待kthreadd线程创建完成，注册内核驱动模块do_basic_setup()、启动默认控制台/dev/console
 	/* need to finish all async __init code before freeing the memory */
-	async_synchronize_full();
-	free_initmem();
+	async_synchronize_full();               //等待所有异步调用执行完成
+	free_initmem();                         //释放init段内存
 	mark_rodata_ro();
 	system_state = SYSTEM_RUNNING;
 	numa_default_policy();
 
-	flush_delayed_fput();
+	flush_delayed_fput();                   //同步所有延时fput
 
+    //接下来依次执行可用的init程序
 	if (ramdisk_execute_command) {
 		if (!run_init_process(ramdisk_execute_command))
 			return 0;
@@ -880,14 +881,17 @@ static noinline void __init kernel_init_freeable(void)
 
 	smp_prepare_cpus(setup_max_cpus);
 
-	do_pre_smp_initcalls();
-	lockup_detector_init();
+	do_pre_smp_initcalls();                 //执行__initcall_start到__initcall0_start之间的初始化调用
+	lockup_detector_init();                 //启动死锁检测，创建watchdog线程。2K1000B do nothing
 
-	smp_init();
-	sched_init_smp();
+	smp_init();                             //为从核创建idle进程并启动从核
+	sched_init_smp();                       //初始化调度域和负载均衡，初始化从核的调度器
 
 	do_basic_setup();
 
+    //将控制台设置为init进程的0,1,2号文件描述符（标准输入、输出、错误）
+    //之后所有进程都会继承这三个文件描述符
+    //而这个控制台由启动参数指定
 	/* Open the /dev/console on the rootfs, this should never fail */
 	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0)
 		pr_err("Warning: unable to open an initial console.\n");
@@ -904,7 +908,7 @@ static noinline void __init kernel_init_freeable(void)
 
 	if (sys_access((const char __user *) ramdisk_execute_command, 0) != 0) {
 		ramdisk_execute_command = NULL;
-		prepare_namespace();
+		prepare_namespace();                //挂载根文件系统
 	}
 
 	/*
@@ -914,5 +918,5 @@ static noinline void __init kernel_init_freeable(void)
 	 */
 
 	/* rootfs is available now, try loading default modules */
-	load_default_modules();
+	load_default_modules();                 //加载电梯io调度器
 }
