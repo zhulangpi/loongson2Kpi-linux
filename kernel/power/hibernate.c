@@ -1054,19 +1054,80 @@ static ssize_t fastboot_show(struct kobject *kobj,
         return sprintf(buf, "%lu\n", fastboot);
 }
 
-static ssize_t fastboot_store(struct kobject *kobj,
-                              struct kobj_attribute *attr,
-                              const char *buf, size_t n)
+#define NR_CMD  4
+static ssize_t fastboot_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t n)
 {
-        unsigned long in;
+    int len;
+    int mode= -1;
+    char *s;
+    char *fastboot_cmd[NR_CMD] = { "halt", "save_pid", "kill_pid", "print_pid" };
+    struct task_struct *p;
+    int i=0;
+    int j=0;
 
-        if (sscanf(buf, "%lu", &in) == 1) {
-                image_size = 0;
-                fastboot = in;
-                hibernate();
-                return n;
+    static int *all_pid = NULL;
+    static int sum = 0;
+    static int flag = 0;
+
+    s = memchr(buf, '\n', n);
+    len = s ? s - buf : n;
+
+    for (i = 0; i < NR_CMD; i++) {
+        if (len == strlen(fastboot_cmd[i])
+            && !strncmp(buf, fastboot_cmd[i], len)) {
+            mode = i;
+            break;
+        }    
+    }    
+
+    if(0==mode){    //halt
+        image_size = 0;
+        fastboot = 1;
+        hibernate();
+        return n;
+    }else if(1==mode){  //save_pid，只在正常启动时保存所有进程号
+        if(flag)    //已经保存过了，跳过保存
+            return n;
+        for_each_process(p){
+            sum++;
+        }    
+        all_pid = (int*)vmalloc(sizeof(int)*sum);
+        i = 0;
+        for_each_process(p){
+            if( strncmp( p->comm, "bash", strlen("bash") )){
+                all_pid[i++] = p->pid;
+            }    
+        }    
+        sum = i;
+        flag = 1;
+        printk("save %d tasks\n", sum);
+        return n;
+    }else if(2==mode){  //kill_pid，制作镜像前杀死所有新增进程
+        j = 0;
+        for_each_process(p){
+            for(i=0;i<sum;i++){
+                if(all_pid[i] == p->pid){
+                    break;
+                }
+            }
+            if( (i==sum) && (p!=current) ){ //进程列表里找不到，这是新增进程，并且不是本进程
+                force_sig(SIGKILL, p );
+                j++;
+                //force_sig(SIGKILL, pid_task(find_get_pid(all_pid[i]), PIDTYPE_PID ));
+            }
         }
-        return -EINVAL;
+        //vfree(all_pid);
+        printk("delete %d tasks\n", j);
+        return n;
+    }else if(3==mode){
+        printk("all_pid %d saved:\n", sum);
+        for(i=0; i<sum; i++){
+            printk("%d : %d\n",i, all_pid[i]);
+        }
+        return n;
+    }
+
+    return -EINVAL;
 }
 
 power_attr(fastboot);
@@ -1076,7 +1137,7 @@ static struct attribute * g[] = {
 	&resume_attr.attr,
 	&image_size_attr.attr,
 	&reserved_size_attr.attr,
-        &fastboot_attr.attr,
+    &fastboot_attr.attr,
 	NULL,
 };
 
@@ -1146,8 +1207,11 @@ static int __init resumedelay_setup(char *str)
 /*
  * usage:
  * #启动镜像的制作，启用与启动参数中指定的一致的交换区
+ * echo save_pid > /sys/power/fastboot
+ * mkswap /dev/sda3
  * swapon /dev/sda3
- * echo 1 > /sys/power/fastboot
+ * echo kill_pid > /sys/power/fastboot
+ * echo halt > /sys/power/fastboot
  * #设置镜像启动
  * set append "console=ttyS0,115200 console=tty root=/dev/sda2 rootwait fastboot=/dev/sda3"
 */

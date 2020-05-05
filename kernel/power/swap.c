@@ -241,18 +241,19 @@ static int mark_swapfiles(struct swap_map_handle *handle, unsigned int flags)
 	if (!memcmp("SWAP-SPACE",swsusp_header->sig, 10) ||
 	    !memcmp("SWAPSPACE2",swsusp_header->sig, 10)) {
 		memcpy(swsusp_header->orig_sig,swsusp_header->sig, 10);
-                if(fastboot)
-        		memcpy(swsusp_header->sig, FASTBOOT_SIG, 10);
-                else
-        		memcpy(swsusp_header->sig, HIBERNATE_SIG, 10);
+        if(fastboot)
+        	memcpy(swsusp_header->sig, FASTBOOT_SIG, 10);
+        else
+            memcpy(swsusp_header->sig, HIBERNATE_SIG, 10);
 		swsusp_header->image = handle->first_sector;
 		swsusp_header->flags = flags;
 		if (flags & SF_CRC32_MODE)
 			swsusp_header->crc32 = handle->crc32;
 		error = hib_bio_write_page(swsusp_resume_block,
 					swsusp_header, NULL);
-                /* 在2Kpi上，当使用U盘作为外存时，若不添加下句，上句对休眠镜像签名的写入不会被实际执行 */
-	        hib_bio_read_page(swsusp_resume_block, swsusp_header, NULL);
+                /* 在2Kpi上，当使用U盘作为外存时，若不添加下2句，上句对休眠镜像签名的写入不会被实际执行 */
+	    hib_bio_read_page(swsusp_resume_block, swsusp_header, NULL);
+        mdelay(1000);
 	} else {
 		printk(KERN_ERR "PM: Swap header not found!\n");
 		error = -ENODEV;
@@ -1466,7 +1467,8 @@ int swsusp_check(void)
 			/* Reset swap signature now */
 			error = hib_bio_write_page(swsusp_resume_block,
 						swsusp_header, NULL);
-                } else if(fastboot && !memcmp(FASTBOOT_SIG, swsusp_header->sig, 10)){
+        } else if(fastboot && !memcmp(FASTBOOT_SIG, swsusp_header->sig, 10)){
+			memcpy(swsusp_header->sig, swsusp_header->orig_sig, 10);
 			error = hib_bio_write_page(swsusp_resume_block,
 						swsusp_header, NULL);
 		} else {

@@ -78,7 +78,7 @@ MODULE_AUTHOR("Matthew Dharm <mdharm-usb@one-eyed-alien.net>");
 MODULE_DESCRIPTION("USB Mass Storage driver for Linux");
 MODULE_LICENSE("GPL");
 
-static unsigned int delay_use = 1;
+static unsigned int delay_use = 0;
 module_param(delay_use, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(delay_use, "seconds to delay before using a new device");
 
@@ -1007,6 +1007,7 @@ int usb_stor_probe2(struct us_data *us)
 		dev_dbg(dev, "waiting for device to settle before scanning\n");
 	queue_delayed_work(system_freezable_wq, &us->scan_dwork,
 			delay_use * HZ);
+    delay_use = 1;
 	return 0;
 
 	/* We come here if there are any problems */
