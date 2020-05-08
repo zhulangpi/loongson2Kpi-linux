@@ -36,6 +36,7 @@ static int submit(int rw, struct block_device *bdev, sector_t sector,
 	bio->bi_bdev = bdev;
 	bio->bi_end_io = end_swap_bio_read;
 
+    //将一个完整的page添加到bio的bio_vec中
 	if (bio_add_page(bio, page, PAGE_SIZE, 0) < PAGE_SIZE) {
 		printk(KERN_ERR "PM: Adding page to bio failed at %llu\n",
 			(unsigned long long)sector);
@@ -46,8 +47,9 @@ static int submit(int rw, struct block_device *bdev, sector_t sector,
 	lock_page(page);
 	bio_get(bio);
 
+    //如果未指定bio_chain则直接处理该bio，指定了则链入
 	if (bio_chain == NULL) {
-		submit_bio(bio_rw, bio);
+		submit_bio(bio_rw, bio);    //底层generic_make_request函数调用bio对应块设备的q->make_request_fn来处理bio
 		wait_on_page_locked(page);
 		if (rw == READ)
 			bio_set_pages_dirty(bio);
@@ -55,6 +57,12 @@ static int submit(int rw, struct block_device *bdev, sector_t sector,
 	} else {
 		if (rw == READ)
 			get_page(page);	/* These pages are freed later */
+
+        //bio_chain是指针变量pA的地址，pA指向一个bio实例A
+        //bio变量指向刚刚创建的bio实例B，
+        //B的bi_private域赋值为pA，即B的bi_private域指向A
+        //pA赋值为bio变量，令pA指向B
+        //本函数，输入一个指向A的指针，将新分配的B指向A，并修改指针，使其指向B
 		bio->bi_private = *bio_chain;
 		*bio_chain = bio;
 		submit_bio(bio_rw, bio);
@@ -74,6 +82,7 @@ int hib_bio_write_page(pgoff_t page_off, void *addr, struct bio **bio_chain)
 			virt_to_page(addr), bio_chain);
 }
 
+//输入尾部元素
 int hib_wait_on_bio_chain(struct bio **bio_chain)
 {
 	struct bio *bio;
@@ -89,7 +98,7 @@ int hib_wait_on_bio_chain(struct bio **bio_chain)
 	while (bio) {
 		struct page *page;
 
-		next_bio = bio->bi_private;
+		next_bio = bio->bi_private; //前一个元素
 		page = bio->bi_io_vec[0].bv_page;
 		wait_on_page_locked(page);
 		if (!PageUptodate(page) || PageError(page))

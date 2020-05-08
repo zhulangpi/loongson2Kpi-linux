@@ -66,6 +66,9 @@ EXPORT_SYMBOL(cpu_sibling_map);
 /* representing cpus for which sibling maps can be computed */
 static cpumask_t cpu_sibling_setup_map;
 
+static DECLARE_COMPLETION(cpu_starting);
+static DECLARE_COMPLETION(cpu_running);
+
 static inline void set_cpu_sibling_map(int cpu)
 {
 	int i;
@@ -108,11 +111,8 @@ asmlinkage __cpuinit void start_secondary(void)
 		__cpu_name[smp_processor_id()] = __cpu_name[0];
 	else
 #endif /* CONFIG_MIPS_MT_SMTC */
-        /* 主要是填充struct cpuinfo_mips这个结构体实例 */
 	cpu_probe();
-        /*初始化异常与中断相关寄存器，设置传送过来的idle进程的地址空间为init_mm*/
 	per_cpu_trap_init(false);
-        /*==>r4k_clockevent_init()*/
 	mips_clockevent_init();
 	mp_ops->init_secondary();
 	if (system_state == SYSTEM_BOOTING)
@@ -127,18 +127,25 @@ asmlinkage __cpuinit void start_secondary(void)
 	preempt_disable();
 	cpu = smp_processor_id();
 	cpu_data[cpu].udelay_val = loops_per_jiffy;
-        /*发送CPU_STARTING_FROZEN到cpu_chain，已boot的CPU会执行很多callback*/
+
 	notify_cpu_starting(cpu);
-	/*Bitmask of started secondaries 置位对应的CPU*/
-	cpu_set(cpu, cpu_callin_map);
+	
+    /* Notify boot CPU that we're starting & ready to sync counters */
+    complete(&cpu_starting);
 
 	synchronise_count_slave(cpu);
-
 
 	set_cpu_online(cpu, true);
 
 	set_cpu_sibling_map(cpu);
 
+	cpu_set(cpu, cpu_callin_map);
+
+    /*
+     * Notify boot CPU that we're up & online and it can safely return
+     * from __cpu_up
+     */
+    complete(&cpu_running);
 	/*
 	 * irq will be enabled in ->smp_finish(), enabling it too early
 	 * is dangerous.
@@ -206,13 +213,15 @@ int __cpuinit __cpu_up(unsigned int cpu, struct task_struct *tidle)
 {
 	mp_ops->boot_secondary(cpu, tidle);
 
-	/*
-	 * Trust is futile.  We should really have timeouts ...
-	 */
-	while (!cpu_isset(cpu, cpu_callin_map))
-		udelay(100);
+
+    /* Wait for CPU to start and be ready to sync counters */
+	while ( !wait_for_completion_timeout(&cpu_starting, msecs_to_jiffies(1000)) ){
+		pr_crit("CPU%u: failed to start\n", cpu);
+        return -EIO;
+    }
 
 	synchronise_count_master(cpu);
+    wait_for_completion(&cpu_running);
 	return 0;
 }
 
